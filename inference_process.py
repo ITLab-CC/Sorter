@@ -11,7 +11,7 @@ import RPi.GPIO as GPIO
 print("Python Executable:", sys.executable)
 print("Python Path:", sys.path)
 
-model_path = '../model.tflite'
+model_path = '../best-object_int8.tflite'
 SORT_PIN = 7
 
 # Setup GPIO
@@ -56,11 +56,16 @@ def load_and_infer_image():
             img_array = np.array(img_pil)
             img_array = np.expand_dims(img_array, axis=0)
 
-            # Normalize and convert to UINT8 if needed
+            # Normalize and convert to the correct type if needed
             if input_dtype == np.uint8:
                 img_array = np.array(img_pil, dtype=np.float32)
                 img_array = (img_array / 255.0 - input_zero_point) / input_scale
                 img_array = np.clip(img_array, 0, 255).astype(np.uint8)
+            elif input_dtype == np.int8:
+                # Convert to int8, adjusting scaling as needed
+                img_array = np.array(img_pil, dtype=np.float32)
+                img_array = (img_array - input_zero_point) / input_scale
+                img_array = np.clip(img_array * 255, 0, 255).astype(np.int8)
             else:
                 img_array = np.array(img_pil, dtype=np.float32)
 
