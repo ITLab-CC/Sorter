@@ -6,13 +6,26 @@ from PIL import Image
 from pycoral.adapters import classify
 from pycoral.utils.edgetpu import make_interpreter
 import RPi.GPIO as GPIO
+import socket
 
 # Debugging
 print("Python Executable:", sys.executable)
 print("Python Path:", sys.path)
 
-model_path = '../best-object_int8.tflite'
+model_path = '../test.tflite'
 SORT_PIN = 7
+
+#Socket Verbindung
+client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+client_socket.connect(('localhost', 65432))
+
+# Daten an Server senden (z. B. an Arduino senden)
+client_socket.sendall(b'Hello Arduino')
+
+# Daten vom Server empfangen (z. B. von Arduino empfangen)
+while True:
+    response = client_socket.recv(1024).decode('utf-8')
+    print(f"Received from Arduino: {response}")
 
 # Setup GPIO
 GPIO.setwarnings(False)
