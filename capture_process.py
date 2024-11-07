@@ -21,16 +21,16 @@ LED_CHANNEL_2 = 1       # Kanal für den zweiten Streifen
 
 #Socket Verbindung
 
-client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-client_socket.connect(('localhost', 65432))
+# client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+# client_socket.connect(('localhost', 65432))
 
 # Daten an Server senden (z. B. an Arduino senden)
-client_socket.sendall(b'Hello Arduino')
+# client_socket.sendall(b'Hello Arduino')
 
 # Daten vom Server empfangen (z. B. von Arduino empfangen)
-while True:
-    response = client_socket.recv(1024).decode('utf-8')
-    print(f"Received from Arduino: {response}")
+# while True:
+#     response = client_socket.recv(1024).decode('utf-8')
+#     print(f"Received from Arduino: {response}")
 
 # Funktion zum Setzen der NeoPixel-Farben für beide Streifen
 def set_neopixel_color(strip, color):

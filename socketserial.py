@@ -3,7 +3,7 @@ import socket
 import threading
 
 # Serial-Port einrichten
-ser = serial.Serial('/dev/ttyACM0', 9600, timeout=1)
+ser = serial.Serial('/dev/serial/by-id/usb-Arduino__www.arduino.cc__0042_24238313635351910130-if00', 9600, timeout=1)
 
 # Socket-Server einrichten
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

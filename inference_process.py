@@ -15,22 +15,14 @@ print("Python Path:", sys.path)
 model_path = '../test.tflite'
 SORT_PIN = 7
 
-#Socket Verbindung
-client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-client_socket.connect(('localhost', 65432))
-
-# Daten an Server senden (z. B. an Arduino senden)
-client_socket.sendall(b'Hello Arduino')
-
-# Daten vom Server empfangen (z. B. von Arduino empfangen)
-while True:
-    response = client_socket.recv(1024).decode('utf-8')
-    print(f"Received from Arduino: {response}")
-
 # Setup GPIO
 GPIO.setwarnings(False)
 GPIO.setmode(GPIO.BOARD)
 GPIO.setup(SORT_PIN, GPIO.OUT, initial=GPIO.LOW)
+
+# Socket Verbindung
+client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+client_socket.connect(('localhost', 65432))  # Verändere die IP und den Port entsprechend deinem Setup
 
 # Angepasster Schwellenwert für die Dateigröße
 MIN_FILE_SIZE = 5000  # Reduzierter Wert, um auch kleinere Bilder zu berücksichtigen
@@ -75,7 +67,6 @@ def load_and_infer_image():
                 img_array = (img_array / 255.0 - input_zero_point) / input_scale
                 img_array = np.clip(img_array, 0, 255).astype(np.uint8)
             elif input_dtype == np.int8:
-                # Convert to int8, adjusting scaling as needed
                 img_array = np.array(img_pil, dtype=np.float32)
                 img_array = (img_array - input_zero_point) / input_scale
                 img_array = np.clip(img_array * 255, 0, 255).astype(np.int8)
@@ -94,15 +85,27 @@ def load_and_infer_image():
 
             if classes and classes[0].id == 0 and classes[0].score > 0.7:
                 print("Objekt mit ausreichender Zuversicht erkannt. Sortierung aktivieren.")
+                
+                # Sende Nachricht über die Socket-Verbindung
+                client_socket.sendall(b'S1')
+                
+                # Aktiviere den GPIO für die Sortierung
                 GPIO.output(SORT_PIN, GPIO.HIGH)
                 time.sleep(1)
                 GPIO.output(SORT_PIN, GPIO.LOW)
             else:
                 print("Kein Objekt erkannt oder geringe Zuversicht.")
+                client_socket.sendall(b'S0')
 
             os.remove(img_path)
 
         time.sleep(1)
 
 if __name__ == '__main__':
-    load_and_infer_image()
+    try:
+        load_and_infer_image()
+    except KeyboardInterrupt:
+        print("Programm wird beendet.")
+    finally:
+        client_socket.close()  # Socket-Verbindung bei Programmende schließen
+        GPIO.cleanup()  # GPIO-Pins freigeben
