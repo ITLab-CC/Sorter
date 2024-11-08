@@ -1,5 +1,7 @@
 spinnaker_python
 spinnaker_python/*
+spinnaker_sdk
+spinnaker_sdk/*
 spinnaker_python*.tar.gz
 spinnaker-*.tar.gz
 
