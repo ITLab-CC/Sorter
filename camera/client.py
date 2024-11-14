@@ -4,14 +4,14 @@ import cv2
 import pickle
 import struct
 import time
-from typing import Optional, Callable
+from typing import Any, Optional, Callable
 
 class Client:
     def __init__(self, host: str = 'localhost', port: int = 9999) -> None:
         self.host: str = host
         self.port: int = port
         self.sock: socket.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.callback: Optional[Callable[[any], None]] = None
+        self.callback: Optional[Callable[[Any], None]] = None
         self.running: bool = False
 
     def start(self) -> None:
@@ -23,7 +23,7 @@ class Client:
         self.running = True
         threading.Thread(target=self.receive_images, daemon=True).start()
 
-    def register_callback(self, callback_function: Callable[[any], None]) -> None:
+    def register_callback(self, callback_function: Callable[[Any], None]) -> None:
         """
         Registriert eine Funktion, die aufgerufen wird, wenn ein Bild empfangen wird.
         """

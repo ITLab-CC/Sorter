@@ -25,7 +25,7 @@ class Camera:
             print("Camera not initialized.")
             return None
 
-        image_rgb = None
+        image_rgb: Optional[cv2.typing.MatLike] = None
         try:
             self.camera.BeginAcquisition()
             image_result = self.camera.GetNextImage()
