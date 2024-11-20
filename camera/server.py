@@ -45,6 +45,7 @@ class Server(threading.Thread):
         self.host: str = host
         self.port: int = port
         self.connections: List[Connection] = []
+        self.connections_lock = threading.Lock()
         self.sock: socket.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.running: bool = True
         self.lock = threading.Lock()
@@ -56,9 +57,11 @@ class Server(threading.Thread):
         while self.running:
             try:
                 conn, addr = self.sock.accept()
+                if not self.running:
+                    break
                 print(f"Neue Verbindung von {addr}")
                 connection = Connection(conn, addr, self)
-                with self.lock:
+                with self.connections_lock:
                     self.connections.append(connection)
                 connection.start()
             except Exception as e:
@@ -67,12 +70,13 @@ class Server(threading.Thread):
     def send(self, image) -> None:
         data = pickle.dumps(image)
         with self.lock:
-            for conn in self.connections.copy():
-                if conn.active:
-                    conn.send_image(data)
+            with self.connections_lock:
+                for conn in self.connections.copy():
+                    if conn.active:
+                        conn.send_image(data)
 
     def remove_connection(self, connection: Connection) -> None:
-        with self.lock:
+        with self.connections_lock:
             if connection in self.connections:
                 self.connections.remove(connection)
                 print(f"Verbindung zu {connection.addr} entfernt.")
@@ -83,6 +87,11 @@ class Server(threading.Thread):
         with self.lock:
             for conn in self.connections:
                 conn.close()
+        try:
+            stop_sock: socket.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            stop_sock.connect((self.host, self.port))
+        except:
+            pass
         print("Server gestoppt.")
 
 if __name__ == "__main__":
