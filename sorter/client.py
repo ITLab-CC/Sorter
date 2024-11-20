@@ -18,7 +18,13 @@ class Client:
         """
         Stellt die Verbindung zum Server her und startet den Empfang von Bildern.
         """
-        self.sock.connect((self.host, self.port))
+        try:
+            self.sock.connect((self.host, self.port))
+        except ConnectionRefusedError:
+            print("Verbindung zum Server fehlgeschlagen.")
+            time.sleep(5)
+            self.start()
+            return
         print("Mit dem Server verbunden.")
         self.running = True
         threading.Thread(target=self.receive_images, daemon=True).start()
