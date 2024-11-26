@@ -51,7 +51,13 @@ class Server(threading.Thread):
         self.lock = threading.Lock()
 
     def run(self) -> None:
-        self.sock.bind((self.host, self.port))
+        while True:
+            try:
+                self.sock.bind((self.host, self.port))
+                break
+            except Exception as e:
+                print(f"Fehler beim Binden des Sockets: {e}")
+                time.sleep(5)
         self.sock.listen(5)
         print("Server gestartet und wartet auf Verbindungen...")
         while self.running:
