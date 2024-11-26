@@ -5,7 +5,7 @@ all: build
 build: camera-build sorter-build start
 	echo "Build done."
 
-start: camera sorter
+start: kill camera sorter
 	echo "Start done."
 
 camera-build:
