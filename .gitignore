@@ -4,6 +4,7 @@ spinnaker_sdk
 spinnaker_sdk/*
 spinnaker_python*.tar.gz
 spinnaker-*.tar.gz
+spinnaker.tar.gz
 
 **utils/__pycache__
 **old/.venv*
