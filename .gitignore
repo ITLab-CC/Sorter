@@ -6,6 +6,13 @@ spinnaker_python*.tar.gz
 spinnaker-*.tar.gz
 spinnaker.tar.gz
 *.png
+Python-3.10.0
+Python-3.10.0/*
+Python-3.9.0
+Python-3.9.0/*
+Python-3.10.0.tar.xz
+Python-3.9.0.tar.xz
+spinnaker_sdk.tar.gz
 
 **utils/__pycache__
 **old/.venv*

@@ -19,7 +19,6 @@ install-dependencies:
 	sudo apt update && sudo apt install screen -y;
 	sudo apt update && sudo apt install libgl1-mesa-glx -y;
 
-
 install-python3.10:
 	@if [ -z "$(PYTHON_VERSION_3_10)" ]; then \
 		echo "Python 3.10 is not installed."; \
@@ -52,7 +51,7 @@ camera-build: install-python3.10
 	tar -xzvf spinnaker_python.tar.gz -C spinnaker_python;
 	tar -xzvf spinnaker_sdk.tar.gz -C spinnaker_sdk;
 	cd spinnaker_sdk/spinnaker-4.0.0.116-arm64 && \
-	printf "\n\n\n\n\n\n\n\n" | sudo ./install_spinnaker_arm.sh
+	printf "\n\t\n\n\n\n\n\n\n\n" | sudo ./install_spinnaker_arm.sh
 	python3.10 -m venv ./camera/.venv-3.10;
 	./camera/.venv-3.10/bin/pip install ./spinnaker_python/spinnaker_python-4.0.0.116-cp310-cp310-linux_aarch64.whl;
 	rm -rf spinnaker_python spinnaker_sdk;
@@ -95,19 +94,15 @@ sorter:
 	screen -dmS sorter bash -c "source ./sorter/.venv-3.9/bin/activate && python -u ./sorter/main.py 2>&1 | tee ./sorter/logs/output.log"
 
 kill:
-	echo "Killing Screen sessions..."
-	@if screen -ls | grep -q "\.camera"; then \
-		echo "Stopping screen session 'camera'..."; \
-		screen -S camera -X quit; \
-	else \
-		echo "Screen session 'camera' does not exist."; \
-	fi
-	@if screen -ls | grep -q "\.sorter"; then \
-		echo "Stopping screen session 'sorter'..."; \
-		screen -S sorter -X quit; \
-	else \
-		echo "Screen session 'sorter' does not exist."; \
-	fi
+	echo "Killing all 'camera' and 'sorter' screen sessions..."
+	@screen -ls | grep "\.camera" | awk '{print $$1}' | while read session; do \
+		echo "Stopping screen session $$session..."; \
+		screen -S $$session -X quit; \
+	done
+	@screen -ls | grep "\.sorter" | awk '{print $$1}' | while read session; do \
+		echo "Stopping screen session $$session..."; \
+		screen -S $$session -X quit; \
+	done
 
 stop: kill
 	echo "Stop done."
