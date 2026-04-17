@@ -5,7 +5,7 @@ ENABLE_PIN = 17
 DIR_PIN = 27
 STEP_PIN = 22
 
-def setup_motor():
+def setup_motor() -> None:
     GPIO.setmode(GPIO.BCM)
     GPIO.setwarnings(False)
 
@@ -13,7 +13,7 @@ def setup_motor():
     GPIO.setup(DIR_PIN, GPIO.OUT)
     GPIO.setup(STEP_PIN, GPIO.OUT)
 
-def motor_test(steps, pause_seconds):
+def motor_test(steps: int, pause_seconds: float) -> None:
     GPIO.output(ENABLE_PIN, GPIO.LOW)
 
     GPIO.output(DIR_PIN, GPIO.LOW)

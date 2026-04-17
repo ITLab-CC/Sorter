@@ -8,7 +8,7 @@ LED_BRIGHTNESS = 0.5
 
 pixels = neopixel.NeoPixel(LED_PIN, LED_COUNT, brightness=LED_BRIGHTNESS, auto_write=False)
 
-def neopixel_test():
+def neopixel_test() -> None:
     try:
         print("NeoPixel test started...")
         time.sleep(1)

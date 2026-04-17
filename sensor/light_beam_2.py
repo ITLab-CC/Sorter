@@ -4,7 +4,7 @@ from datetime import datetime
 
 sensor = MCP3008(channel=0)
 
-def light_beam_test():
+def light_beam_test() -> None:
     print("Light beam test started...")
     time.sleep(1)
 

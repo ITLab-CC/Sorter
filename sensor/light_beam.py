@@ -8,7 +8,7 @@ THRESHOLD_ON = 0.610
 THRESHOLD_OFF = 0.580
 REQUIRED_HITS = 2
 
-def light_beam_test():
+def light_beam_test() -> None:
     print("Light beam test started... (press Ctrl+C to stop)")
     print("Hold your hand in front of the sensor!")
     time.sleep(1)

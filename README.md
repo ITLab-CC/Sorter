@@ -138,5 +138,5 @@ pip3 install mypy
 
 To check the types, run:
 ```bash
-mypy --check-untyped-defs --disallow-untyped-defs main.py
+python3 -m mypy .
 ```

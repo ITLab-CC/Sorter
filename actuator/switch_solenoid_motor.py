@@ -5,7 +5,7 @@ from time import sleep
 SOLENOID_PIN = 16
 solenoid = OutputDevice(SOLENOID_PIN)
 
-def solenoid_test():
+def solenoid_test() -> None:
     # Test intervals in seconds
     intervals = [1.0, 1.0, 0.5, 0.5, 0.1, 0.1]
 
