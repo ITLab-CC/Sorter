@@ -1,6 +1,5 @@
 mypy
 opencv-python
-pyspin
 numpy==1.26.4
 gpiozero
 spidev

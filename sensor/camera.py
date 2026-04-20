@@ -50,6 +50,10 @@ class Camera:
         """Releases the camera resources."""
         if self.camera:
             self.camera.DeInit()
+            # CRITICAL FIX: Destroy the Python reference to the camera pointer
+            del self.camera 
+            self.camera = None
+
         self.cam_list.Clear()
         self.release_system()
 
@@ -57,15 +61,15 @@ class Camera:
         """Releases the PySpin system instance."""
         self.system.ReleaseInstance()
 
-
 if __name__ == "__main__":
     cam = Camera()
 
     img = cam.capture_image()
 
     if img is not None:
-        cv2.imwrite("img.jpg", img)
-        print("Image saved as img.jpg")
+        # Save to a dedicated output folder we will mount via Docker
+        cv2.imwrite("/out/img.jpg", img) 
+        print("Image saved to host via /out/img.jpg")
     else:
         print("Failed to capture image.")
 
