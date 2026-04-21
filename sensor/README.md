@@ -5,6 +5,27 @@ This folder contains the code for the Sensors. The sensors are responsible for c
 
 # Installation
 
+## Docker
+Downloade the python and the sdk version of the Spinnaker SDK from the following link: 
+
+https://www.teledynevisionsolutions.com/support/support-center/software-firmware-downloads/iis/spinnaker-sdk-download/spinnaker-sdk--download-files/?pn=Spinnaker+SDK&vn=Spinnaker+SDK
+
+There should be two files:
+- For x64 (PCs):
+- - (Linux Ubuntu 22.04 -- 64-bit) 'spinnaker-4.3.0.189-Ubuntu22.04-amd64-pkg.tar.gz'
+- - (Linux Ubuntu 22.04 -- 64-bit Python 3.10) 'spinnaker_python-4.3.0.189-cp310-cp310-linux_x86_64.tar.gz'
+
+```bash
+sudo docker build -t sorter-actuator .
+sudo docker run -it --rm \
+    --privileged \
+    -v /dev/bus/usb:/dev/bus/usb \
+    -v $(pwd)/out:/out \
+    --shm-size=2g \
+    sorter-actuator
+```
+
+## DEV
 ```bash
 sudo apt update
 sudo apt install build-essential libssl-dev zlib1g-dev libbz2-dev libreadline-dev libsqlite3-dev curl git libncursesw5-dev xz-utils tk-dev libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev
@@ -18,10 +39,9 @@ export PYENV_ROOT="$HOME/.pyenv"
 command -v pyenv >/dev/null || export PATH="$PYENV_ROOT/bin:$PATH"
 eval "$(pyenv init -)"
 
-pyenv install 3.9.25
 pyenv install 3.10.20
 
-pyenv local 3.10.20 3.9.25
+pyenv local 3.10.20
 ```
 
 ```bash
