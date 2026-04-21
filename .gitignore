@@ -6,6 +6,8 @@ spinnaker_python*.tar.gz
 spinnaker-*.tar.gz
 spinnaker.tar.gz
 *.png
+*.csv
+*.zip
 Python-3.10.0
 Python-3.10.0/*
 Python-3.9.0
