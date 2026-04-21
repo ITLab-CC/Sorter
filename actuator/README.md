@@ -15,5 +15,5 @@ pip install -r requirements.txt
 # Usage
 
 ```bash
-python [script].py
+sudo .venv/bin/python [script].py
 ```

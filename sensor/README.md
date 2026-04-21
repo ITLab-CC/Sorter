@@ -27,8 +27,32 @@ sudo docker run -it --rm \
 
 ## DEV
 ```bash
-sudo apt update
-sudo apt install build-essential libssl-dev zlib1g-dev libbz2-dev libreadline-dev libsqlite3-dev curl git libncursesw5-dev xz-utils tk-dev libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev
+sudo apt update 
+sudo apt install -y \
+    udev \
+    ethtool \
+    libusb-1.0-0 \
+    iproute2 \
+    iputils-ping \
+    net-tools \
+    build-essential \
+    libssl-dev \
+    zlib1g-dev \
+    libbz2-dev \
+    libreadline-dev \
+    libsqlite3-dev \
+    curl \
+    git \
+    libncursesw5-dev \
+    xz-utils \
+    tk-dev \
+    libxml2-dev \
+    libxmlsec1-dev \
+    libffi-dev \
+    liblzma-dev \
+    libgl1 \
+    libglib2.0-0 \
+    ffmpeg
 
 curl https://pyenv.run | bash
 
@@ -62,7 +86,7 @@ There should be two files:
 - - (Linux Ubuntu 22.04 -- ARM64 Python 3.10) 'spinnaker_python-4.3.0.189-cp310-cp310-linux_aarch64.tar.gz'
 
 ```bash
-mkdir spinnaker_sdk spinnaker_python
+mkdir -p spinnaker_sdk spinnaker_python
 tar -xzvf spinnaker-4.3.0.189-Ubuntu22.04-arm64-pkg.tar.gz -C spinnaker_sdk
 tar -xzvf spinnaker_python-4.3.0.189-cp310-cp310-linux_aarch64.tar.gz -C spinnaker_python
 
@@ -83,7 +107,7 @@ rm -rf spinnaker_python spinnaker_sdk
 - - (Linux Ubuntu 22.04 -- 64-bit Python 3.10) 'spinnaker_python-4.3.0.189-cp310-cp310-linux_x86_64.tar.gz'
 
 ```bash
-mkdir spinnaker_sdk spinnaker_python
+mkdir -p spinnaker_sdk spinnaker_python
 tar -xzvf spinnaker-4.3.0.189-Ubuntu22.04-amd64-pkg.tar.gz -C spinnaker_sdk
 tar -xzvf spinnaker_python-4.3.0.189-cp310-cp310-linux_x86_64.tar.gz -C spinnaker_python
 
@@ -100,5 +124,5 @@ rm -rf spinnaker_python spinnaker_sdk
 # Usage
 
 ```bash
-python3.10 [script].py
+sudo .venv-3.10/bin/python [script].py
 ```
