@@ -3,3 +3,4 @@ opencv-python
 numpy==1.26.4
 gpiozero
 spidev
+psutil
