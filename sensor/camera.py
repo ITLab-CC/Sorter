@@ -4,7 +4,7 @@ import numpy as np
 import time
 import psutil
 import os
-from typing import Optional, List
+from typing import Optional
 
 class Camera:
     def __init__(self, index: int = 0) -> None:
@@ -21,31 +21,27 @@ class Camera:
         self.camera.Init()
         self.camera.AcquisitionMode.SetValue(PySpin.AcquisitionMode_Continuous)
 
-    def capture_for_duration(self, duration_sec: int) -> List[np.ndarray]:
-        """Captures raw frames as fast as possible for a set duration in seconds."""
+    def stream_for_duration(self, duration_sec: int):
+        """Yields raw frames sequentially as fast as possible for a set duration."""
         if not self.camera:
             print("Camera not initialized.")
-            return []
+            return
 
-        frames: List[np.ndarray] = []
         try:
             self.camera.BeginAcquisition()
             
-            # Setup timers
             start_time = time.perf_counter()
             end_time = start_time + duration_sec
             
-            # Loop until the time is up
             while time.perf_counter() < end_time:
                 try:
-                    # Grab image (1000ms timeout prevents infinite hangs if disconnected)
+                    # Grab image
                     image_result = self.camera.GetNextImage(1000)
 
                     if not image_result.IsIncomplete():
-                        # Get raw data. We MUST use .copy() here. 
-                        # If we don't, releasing the PySpin image destroys the array data in RAM.
-                        image_data = image_result.GetNDArray()
-                        frames.append(image_data.copy())
+                        # Yield the reference directly to save memory. 
+                        # The caller MUST process it or copy it before the loop continues.
+                        yield image_result.GetNDArray()
                         
                     # Release the buffer immediately so the camera can capture the next frame
                     image_result.Release()
@@ -59,8 +55,6 @@ class Camera:
 
         finally:
             self.camera.EndAcquisition()
-
-        return frames
 
     def release_camera(self) -> None:
         """Releases the camera resources."""
@@ -82,29 +76,23 @@ class Camera:
             return
 
         try:
-            # 1. Turn off Auto-Exposure
             if self.camera.ExposureAuto.GetAccessMode() == PySpin.RW:
                 self.camera.ExposureAuto.SetValue(PySpin.ExposureAuto_Off)
 
-            # 2. Set Exposure Time to 1000 microseconds (1 millisecond)
-            # This guarantees we have enough time to hit 500+ FPS
             if self.camera.ExposureTime.GetAccessMode() == PySpin.RW:
                 exposure_time = min(1000.0, self.camera.ExposureTime.GetMax())
                 self.camera.ExposureTime.SetValue(exposure_time)
 
-            # 3. Disable the Frame Rate limit
             if self.camera.AcquisitionFrameRateEnable.GetAccessMode() == PySpin.RW:
                 self.camera.AcquisitionFrameRateEnable.SetValue(False)
 
-            # 4. Maximize USB bandwidth limit
             try:
                 throughput_node = self.camera.DeviceLinkThroughputLimit
                 if throughput_node.GetAccessMode() == PySpin.RW:
                     max_bandwidth = throughput_node.GetMax()
                     throughput_node.SetValue(max_bandwidth)
-                    print(f"USB Bandwidth limit maximized to {max_bandwidth} bytes/sec")
             except PySpin.SpinnakerException:
-                print("Could not adjust Device Link Throughput.")
+                pass
 
             print(f"Exposure set to {self.camera.ExposureTime.GetValue()} us. Framerate unlocked.")
 
@@ -118,17 +106,11 @@ class Camera:
 
         try:
             nodemap_tldevice = self.camera.GetTLDeviceNodeMap()
-
-            # Get vendor name
             vendor_node = PySpin.CStringPtr(nodemap_tldevice.GetNode("DeviceVendorName"))
             vendor = vendor_node.GetValue() if PySpin.IsReadable(vendor_node) else "Unknown Vendor"
-
-            # Get model name
             model_node = PySpin.CStringPtr(nodemap_tldevice.GetNode("DeviceModelName"))
             model = model_node.GetValue() if PySpin.IsReadable(model_node) else "Unknown Model"
-
             print(f"Camera detected: {vendor} {model}")
-
         except PySpin.SpinnakerException as ex:
             print(f"Error reading camera info: {ex}")
 
@@ -138,25 +120,22 @@ if __name__ == "__main__":
     cam.print_camera_info()
     cam.unlock_max_framerate()
 
-    # --- CONFIGURATION ---
-    test_duration = 5  # Change this to 10 for your 10-second test later
-    # ---------------------
+    test_duration = 5 
 
     print(f"Starting {test_duration}-second capture stress test...")
-    
-    # Get current memory usage before capture
     process = psutil.Process(os.getpid())
-    mem_before = process.memory_info().rss / (1024 * 1024)  # Convert to MB
+    mem_before = process.memory_info().rss / (1024 * 1024)
 
-    # Run the capture
     start_time = time.perf_counter()
-    video_frames = cam.capture_for_duration(test_duration)
+    video_frames = []
+    
+    # Updated to consume the generator
+    for frame in cam.stream_for_duration(test_duration):
+        video_frames.append(frame.copy())
+        
     actual_duration = time.perf_counter() - start_time
+    mem_after = process.memory_info().rss / (1024 * 1024)
 
-    # Get memory usage after capture
-    mem_after = process.memory_info().rss / (1024 * 1024)  # Convert to MB
-
-    # --- CALCULATE RESULTS ---
     frame_count = len(video_frames)
     fps = frame_count / actual_duration if actual_duration > 0 else 0
     mem_used = mem_after - mem_before
@@ -164,32 +143,16 @@ if __name__ == "__main__":
     print("\n" + "="*30)
     print("        TEST RESULTS")
     print("="*30)
-    print(f"Target Duration : {test_duration} seconds")
     print(f"Actual Duration : {actual_duration:.3f} seconds")
     print(f"Frames Captured : {frame_count} frames")
     print(f"Actual FPS      : {fps:.2f} FPS")
     print(f"Total RAM Used  : ~{mem_used:.2f} MB")
-    
-    if frame_count > 0:
-        print(f"RAM per Frame   : {(mem_used / frame_count):.2f} MB")
     print("="*30 + "\n")
 
-    # svae first and last frames for visual confirmation
     if frame_count > 0:
-        first_frame = video_frames[0]
-        last_frame = video_frames[-1]
-        first_frame_rgb = cv2.cvtColor(first_frame, cv2.COLOR_BAYER_RG2RGB)
-        last_frame_rgb = cv2.cvtColor(last_frame, cv2.COLOR_BAYER_RG2RGB)
+        first_frame_rgb = cv2.cvtColor(video_frames[0], cv2.COLOR_BAYER_RG2RGB)
+        last_frame_rgb = cv2.cvtColor(video_frames[-1], cv2.COLOR_BAYER_RG2RGB)
         cv2.imwrite("./out/first_frame.png", first_frame_rgb)
         cv2.imwrite("./out/last_frame.png", last_frame_rgb)
-        print("Saved first_frame.png and last_frame.png.")
-
-    # # svae first and last frames for visual confirmation
-    # i = 0
-    # for frame in video_frames:
-    #     i += 1
-    #     first_frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BAYER_RG2RGB)
-    #     cv2.imwrite(f"./out/{i}_frame.png", first_frame_rgb)
-    #     print("Saved first_frame.png and last_frame.png.")
 
     cam.release_camera()
