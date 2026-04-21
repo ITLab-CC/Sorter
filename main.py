@@ -1,6 +1,8 @@
 import threading
 import time
 from typing import List
+import os
+import glob
 
 import numpy as np
 import cv2
@@ -73,7 +75,8 @@ def contains_marble(frame_bayer, crop_size=300, min_area=2000, max_area=100000, 
 
 
 def main() -> None:
-    capture_seconds = 10
+    capture_seconds = 300
+    out_dir = "out"
     led_color = (255, 255, 255)
 
     leds = NeoPixelController()
@@ -133,11 +136,35 @@ def main() -> None:
 
         # --- Save only centered frames to disk ---
         if frames_to_save:
-            print("Writing kept frames to disk...")
-            for idx, frame_bayer in enumerate(frames_to_save):
+            # 1. Find all existing frame images in the output folder
+            search_pattern = os.path.join(out_dir, "frame_*.png")
+            existing_files = glob.glob(search_pattern)
+
+            # 2. Extract the numbers and find the highest one
+            highest_idx = -1
+            for filepath in existing_files:
+                filename = os.path.basename(filepath) # e.g., 'frame_0042.png'
+                try:
+                    # Split by '_' and '.' to extract '0042', then convert to integer
+                    num = int(filename.split('_')[1].split('.')[0])
+                    if num > highest_idx:
+                        highest_idx = num
+                except (IndexError, ValueError):
+                    # Ignore any files that happen to match the glob but don't parse cleanly
+                    pass 
+
+            # 3. Set the new starting index (if no files exist, highest_idx is -1, so start_idx becomes 0)
+            start_idx = highest_idx + 1
+
+            print(f"Writing kept frames to disk, continuing from frame_{start_idx:04d}...")
+
+            # 4. Use the 'start' argument in enumerate to offset the index
+            for idx, frame_bayer in enumerate(frames_to_save, start=start_idx):
                 # Convert Bayer to BGR right before saving to disk
                 frame_bgr = cv2.cvtColor(frame_bayer, cv2.COLOR_BAYER_RG2BGR)
-                filename = f"./out/frame_{idx:04d}.png"
+                
+                # Create the filename using the offset index
+                filename = os.path.join(out_dir, f"frame_{idx:04d}.png")
                 cv2.imwrite(filename, frame_bgr)
                 
             print(f"Total centered frames successfully saved: {len(frames_to_save)}")
