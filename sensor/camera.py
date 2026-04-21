@@ -174,4 +174,14 @@ if __name__ == "__main__":
         print(f"RAM per Frame   : {(mem_used / frame_count):.2f} MB")
     print("="*30 + "\n")
 
+    # svae first and last frames for visual confirmation
+    if frame_count > 0:
+        first_frame = video_frames[0]
+        last_frame = video_frames[-1]
+        first_frame_rgb = cv2.cvtColor(first_frame, cv2.COLOR_BAYER_RG2RGB)
+        last_frame_rgb = cv2.cvtColor(last_frame, cv2.COLOR_BAYER_RG2RGB)
+        cv2.imwrite("/out/first_frame.png", first_frame_rgb)
+        cv2.imwrite("/out/last_frame.png", last_frame_rgb)
+        print("Saved first_frame.png and last_frame.png.")
+
     cam.release_camera()
