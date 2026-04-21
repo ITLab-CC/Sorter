@@ -7,13 +7,13 @@ This folder contains the code for the Actuator module, which is responsible for 
 # Installation
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
+python3 -m venv .venv-3.10
+source .venv-3.10/bin/activate
+pip install -r requirements-3.10.txt
 ```
 
 # Usage
 
 ```bash
-sudo .venv/bin/python [script].py
+sudo .venv-3.10/bin/python [script].py
 ```

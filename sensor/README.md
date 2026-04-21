@@ -72,7 +72,7 @@ pyenv local 3.10.20
 python3.10 -m venv .venv-3.10
 source .venv-3.10/bin/activate
 export SPINNAKER_GENTL64_CTI=/opt/spinnaker/lib/spinnaker-gentl/Spinnaker_GenTL.cti
-pip install -r requirements.txt
+pip install -r requirements-3.10.txt
 ```
 ---
 
