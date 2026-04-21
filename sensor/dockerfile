@@ -1,11 +1,13 @@
 # Use Ubuntu 22.04 as the base image
 FROM ubuntu:22.04
 
+# Expose the architecture argument provided by Docker
+ARG TARGETARCH
+
 # Prevent interactive prompts from apt
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Install prerequisite system packages
-# Merged your network/hardware tools with standard Python build dependencies
 RUN apt-get update && apt-get install -y \
     python3.10 \
     python3.10-venv \
@@ -56,14 +58,28 @@ RUN dpkg-divert --local --rename --add /bin/systemctl && ln -s /bin/true /bin/sy
 # Set up a temporary working directory for the installation
 WORKDIR /tmp/spinnaker_install
 
-# Copy the tarballs from your host into the container
-COPY spinnaker-4.3.0.189-Ubuntu22.04-amd64-pkg.tar.gz .
-COPY spinnaker_python-4.3.0.189-cp310-cp310-linux_x86_64.tar.gz .
+# Copy ALL tarballs using wildcards. 
+# Wildcards prevent Docker from failing if you only have one architecture's files downloaded.
+COPY spinnaker-4.3.0.189-Ubuntu22.04-*-pkg.tar.gz ./
+COPY spinnaker_python-4.3.0.189-cp310-cp310-linux_*.tar.gz ./
 
-# Create directories and extract the tarball
-RUN mkdir spinnaker_sdk spinnaker_python && \
-    tar -xzvf spinnaker-4.3.0.189-Ubuntu22.04-amd64-pkg.tar.gz -C spinnaker_sdk --strip-components=1 && \
-    tar -xzvf spinnaker_python-4.3.0.189-cp310-cp310-linux_x86_64.tar.gz -C spinnaker_python
+# Detect architecture, map to Spinnaker's naming conventions, and extract the correct files
+RUN if [ "$TARGETARCH" = "amd64" ]; then \
+        SDK_ARCH="amd64"; \
+        PY_ARCH="x86_64"; \
+    elif [ "$TARGETARCH" = "arm64" ]; then \
+        SDK_ARCH="arm64"; \
+        PY_ARCH="aarch64"; \
+    else \
+        echo "Unsupported architecture: $TARGETARCH"; \
+        exit 1; \
+    fi && \
+    echo "Building for architecture: $TARGETARCH (SDK: $SDK_ARCH, Python: $PY_ARCH)" && \
+    mkdir spinnaker_sdk spinnaker_python && \
+    tar -xzvf spinnaker-4.3.0.189-Ubuntu22.04-${SDK_ARCH}-pkg.tar.gz -C spinnaker_sdk --strip-components=1 && \
+    tar -xzvf spinnaker_python-4.3.0.189-cp310-cp310-linux_${PY_ARCH}.tar.gz -C spinnaker_python && \
+    # Clean up the original tarballs immediately so they don't permanently bloat the Docker image layer
+    rm -f *.tar.gz
 
 WORKDIR /tmp/spinnaker_install/spinnaker_sdk
 
@@ -116,5 +132,5 @@ ENV SPINNAKER_GENTL64_CTI=/opt/spinnaker/lib/spinnaker-gentl/Spinnaker_GenTL.cti
 # Copy the rest of the application code
 COPY . .
 
-# Default command (replace 'main.py' with your actual script)
+# Default command
 CMD ["python3.10", "camera.py"]
