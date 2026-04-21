@@ -123,8 +123,8 @@ RUN rm -rf /tmp/spinnaker_install
 
 # Copy requirements file and install Python dependencies
 WORKDIR /app
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY requirements-3.10.txt .
+RUN pip install --no-cache-dir -r requirements-3.10.txt
 
 # Restore the GenTL path required by the Python SDK
 ENV SPINNAKER_GENTL64_CTI=/opt/spinnaker/lib/spinnaker-gentl/Spinnaker_GenTL.cti

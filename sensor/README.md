@@ -20,7 +20,7 @@ sudo docker build -t sorter-actuator .
 sudo docker run -it --rm \
     --privileged \
     -v /dev/bus/usb:/dev/bus/usb \
-    -v $(pwd)/out:/out \
+    -v $(pwd)/out:/app/out \
     --shm-size=2g \
     sorter-actuator
 ```
