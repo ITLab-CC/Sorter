@@ -184,4 +184,12 @@ if __name__ == "__main__":
         cv2.imwrite("/out/last_frame.png", last_frame_rgb)
         print("Saved first_frame.png and last_frame.png.")
 
+    # # svae first and last frames for visual confirmation
+    # i = 0
+    # for frame in video_frames:
+    #     i += 1
+    #     first_frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BAYER_RG2RGB)
+    #     cv2.imwrite(f"./out/{i}_frame.png", first_frame_rgb)
+    #     print("Saved first_frame.png and last_frame.png.")
+
     cam.release_camera()
