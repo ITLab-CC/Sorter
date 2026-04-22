@@ -8,6 +8,7 @@ spinnaker.tar.gz
 *.png
 *.csv
 *.zip
+*.json
 Python-3.10.0
 Python-3.10.0/*
 Python-3.9.0

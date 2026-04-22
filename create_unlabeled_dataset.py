@@ -75,9 +75,13 @@ def contains_marble(frame_bayer, crop_size=300, min_area=2000, max_area=100000, 
 
 
 def main() -> None:
-    capture_seconds = 300
-    out_dir = "out"
+    capture_seconds = 30
+    out_dir = "dataset/out"
     led_color = (255, 255, 255)
+
+    # create out dir
+    if not os.path.exists(out_dir):
+        os.makedirs(out_dir)
 
     leds = NeoPixelController()
     motor = ElevatorMotorController()
