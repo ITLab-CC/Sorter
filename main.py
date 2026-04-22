@@ -161,7 +161,7 @@ def main() -> None:
             # 4. Use the 'start' argument in enumerate to offset the index
             for idx, frame_bayer in enumerate(frames_to_save, start=start_idx):
                 # Convert Bayer to BGR right before saving to disk
-                frame_bgr = cv2.cvtColor(frame_bayer, cv2.COLOR_BAYER_RG2BGR)
+                frame_bgr = cv2.cvtColor(frame_bayer, cv2.COLOR_BAYER_BG2BGR)
                 
                 # Create the filename using the offset index
                 filename = os.path.join(out_dir, f"frame_{idx:04d}.png")
