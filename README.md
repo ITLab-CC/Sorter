@@ -142,7 +142,9 @@ sudo .venv-3.10/bin/python label_dataset.py
 Now you have a lot of labeled pictures but the labels are not perfect. You can use the following tool to review the labels and correct them if necessary. The tool is called Label Studio and it is a web-based tool for labeling data. You can use it to review the labels and correct them if necessary. The tool will save the corrected labels in the same dataset-[color].json files in the dataset folder. To start Label Studio, run the following command:
 ```bash
 curl -sSL https://get.docker.com | sh
-docker run -p 8080:8080 -v $(pwd)/dataset:/label-studio/data --name label-studio heartexlabs/label-studio:latest
+mkdir label-studio
+chown :0 label-studio
+sudo docker run -p 8080:8080 -v $(pwd)/label-studio/dataset:/label-studio/data --name label-studio -d heartexlabs/label-studio:latest
 ```
 Now open http://localhost:8080 in your web browser and you should see the Label Studio interface.
 
