@@ -31,7 +31,8 @@ sudo apt install -y \
     liblzma-dev \
     libgl1 \
     libglib2.0-0 \
-    ffmpeg
+    ffmpeg \
+    protobuf-compiler
 
 curl https://pyenv.run | bash
 
@@ -52,11 +53,10 @@ pyenv local 3.10.20 3.9.25
 
 
 python3.10 -m venv .venv-3.10
-source .venv-3.10/bin/activate
 export SPINNAKER_GENTL64_CTI=/opt/spinnaker/lib/spinnaker-gentl/Spinnaker_GenTL.cti
-pip install --upgrade pip
-pip install -r ./actuator/requirements-3.10.txt
-pip install -r ./sensor/requirements-3.10.txt
+.venv-3.10/bin/pip install --upgrade pip
+.venv-3.10/bin/pip install -r ./actuator/requirements-3.10.txt
+.venv-3.10/bin/pip install -r ./sensor/requirements-3.10.txt
 
 cd sensor
 ```
@@ -81,7 +81,7 @@ cd spinnaker_sdk/spinnaker-4.3.0.189-arm64/
 
 ```bash
 cd ../../spinnaker_python
-pip3 install spinnaker_python-4.3.0.189-cp310-cp310-linux_aarch64.whl
+.venv-3.10/bin/pip install spinnaker_python-4.3.0.189-cp310-cp310-linux_aarch64.whl
 
 cd ..
 rm -rf spinnaker_python spinnaker_sdk
@@ -95,7 +95,6 @@ sudo .venv-3.10/bin/python main.py
 1. Create a lot of pictures
 First put only one color of marbles in the sorter and create a lot of pictures.It is recommended to create at least 200 pictures per marble color. You can use the following code to create a dataset of pictures. The code will save the pictures in the 'dataset/out' folder.
 ```py
-source .venv-3.10/bin/activate
 sudo .venv-3.10/bin/python create_unlabeled_dataset.py
 ```
 
@@ -159,12 +158,38 @@ Now you can import the images in Label Studio by uploading the json files in the
 4. Train the model
 Now you have a lot of labeled pictures and you can use them to train the model.
 
-TODO
+You can use the following command to train the model:
+```bash
+python3.9 -m venv .venv-3.9
+.venv-3.9/bin/pip install --upgrade pip
+.venv-3.9/bin/pip install -r requirements-3.9.txt
+
+sudo .venv-3.9/bin/python convert_dataset.py
+
+# Clone the repository if you haven't already
+git clone https://github.com/tensorflow/models.git
+
+# Navigate to the research directory
+cd models/research
+
+# Compile protobufs (Critical step for the API to work)
+protoc object_detection/protos/*.proto --python_out=.
+
+# Install the Object Detection API
+cp object_detection/packages/tf2/setup.py .
+
+cd ../../
+
+.venv-3.9/bin/python -m pip install ./models/research/
+
+mkdir -p my-models
+sudo .venv-3.9/bin/python models/research/object_detection/model_main_tf2.py --pipeline_config_path=pipeline.config --model_dir=my-models --alsologtostderr
+```
 
 5. Run the model
 Now you have a trained model and you can use it to sort the marbles. You have to save the model into the `models` folder. You can start the model with the full sorter by running the following command:
 ```bash
-sudo .venv-3.10/bin/python main.py
+sudo .venv-3.9/bin/python main.py
 ```
 
 Enjoy your sorted marbles!

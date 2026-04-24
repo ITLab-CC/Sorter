@@ -9,6 +9,7 @@ spinnaker.tar.gz
 *.csv
 *.zip
 *.json
+*.record
 Python-3.10.0
 Python-3.10.0/*
 Python-3.9.0
@@ -16,6 +17,8 @@ Python-3.9.0/*
 Python-3.10.0.tar.xz
 Python-3.9.0.tar.xz
 spinnaker_sdk.tar.gz
+models
+models/*
 
 **utils/__pycache__
 **old/.venv*
