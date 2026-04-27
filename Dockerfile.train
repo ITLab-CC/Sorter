@@ -1,0 +1,69 @@
+# =============================================================================
+# Sorter end-to-end training image.
+#
+# A single `docker run` performs:
+#   1. TFRecord generation from Label Studio JSONs
+#   2. SSD MobileNet V2 fine-tuning (TF Object Detection API, TF 2.11)
+#   3. TFLite-friendly graph export
+#   4. Full INT8 quantization with a representative dataset
+#   5. Edge TPU compilation
+#
+# Required mounts:
+#   -v <host>/dataset:/dataset       # input  (read-write; nothing is written here)
+#   -v <host>/my-models:/my-models   # output (all artifacts land here)
+#
+# Optional: append `--gpus all` to use the host GPU via the NVIDIA Container Toolkit.
+# =============================================================================
+FROM nvidia/cuda:11.8.0-cudnn8-runtime-ubuntu20.04
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
+
+# ---- System packages ---------------------------------------------------------
+# libgl1 + libglib2.0-0 are required by opencv-python, which is pulled in by the
+# Object Detection API via the `lvis` evaluator.
+RUN apt-get update && apt-get install -y \
+    python3 python3-pip python3-dev \
+    git curl gnupg protobuf-compiler ca-certificates \
+    libgl1 libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
+
+# ---- Edge TPU compiler -------------------------------------------------------
+RUN curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg \
+      | gpg --dearmor -o /usr/share/keyrings/coral-edgetpu-archive-keyring.gpg && \
+    echo "deb [signed-by=/usr/share/keyrings/coral-edgetpu-archive-keyring.gpg] https://packages.cloud.google.com/apt coral-edgetpu-stable main" \
+      > /etc/apt/sources.list.d/coral-edgetpu.list && \
+    apt-get update && apt-get install -y edgetpu-compiler && rm -rf /var/lib/apt/lists/*
+
+# ---- Python base -------------------------------------------------------------
+RUN python3 -m pip install --upgrade pip && \
+    python3 -m pip install "tensorflow==2.11.0" "numpy<2" pillow
+
+# ---- TensorFlow Object Detection API -----------------------------------------
+# The OD API setup tends to drag in conflicting TF/Keras pins, so we re-pin
+# tensorflow==2.11.0 and numpy<2 right after installing it.
+RUN git clone --depth 1 https://github.com/tensorflow/models.git /opt/models && \
+    cd /opt/models/research && \
+    protoc object_detection/protos/*.proto --python_out=. && \
+    cp object_detection/packages/tf2/setup.py . && \
+    python3 -m pip install . && \
+    python3 -m pip install --force-reinstall "tensorflow==2.11.0" "numpy<2"
+
+# ---- Pretrained SSD MobileNet V2 checkpoint ----------------------------------
+RUN mkdir -p /opt/sorter/pretrained && \
+    curl -fsSL http://download.tensorflow.org/models/object_detection/tf2/20200711/ssd_mobilenet_v2_320x320_coco17_tpu-8.tar.gz \
+      | tar -xz -C /opt/sorter/pretrained
+
+# ---- Repo-level config + helper scripts --------------------------------------
+COPY pipeline.config        /opt/sorter/pipeline.config
+COPY label_map.pbtxt        /opt/sorter/label_map.pbtxt
+COPY docker/build_tfrecords.py /opt/sorter/build_tfrecords.py
+COPY docker/quantize.py        /opt/sorter/quantize.py
+COPY docker/entrypoint.sh      /usr/local/bin/sorter-train
+RUN chmod +x /usr/local/bin/sorter-train
+
+VOLUME ["/dataset", "/my-models"]
+WORKDIR /my-models
+
+ENTRYPOINT ["/usr/local/bin/sorter-train"]
