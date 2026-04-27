@@ -33,7 +33,7 @@ sudo apt install -y \
     libglib2.0-0 \
     ffmpeg \
     protobuf-compiler \
-    libedgetpu1-std
+    libedgetpu1-max
 
 curl https://pyenv.run | bash
 

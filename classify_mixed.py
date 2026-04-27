@@ -9,6 +9,7 @@ Output format per image:
 
 import os
 import sys
+import time
 from pathlib import Path
 
 from PIL import Image
@@ -57,21 +58,32 @@ def main():
     print(f"Modell geladen. Input-Groesse: {input_size}")
     print(f"Verarbeite {len(image_files)} Bilder aus {IMAGE_DIR} ...\n")
 
+    inference_times = []
+
     for img_path in image_files:
         image = Image.open(img_path).convert("RGB")
         image_resized = image.resize(input_size, Image.LANCZOS)
         common.set_input(interpreter, image_resized)
-        interpreter.invoke()
 
+        t_start = time.perf_counter()
+        interpreter.invoke()
         objs = detect.get_objects(interpreter, THRESHOLD)
+        t_end = time.perf_counter()
+
+        elapsed_ms = (t_end - t_start) * 1000
+        inference_times.append(elapsed_ms)
 
         if objs:
             best = max(objs, key=lambda o: o.score)
             label = LABELS.get(best.id, f"unknown_{best.id}")
             pct = best.score * 100
-            print(f"{img_path.name}: {pct:.1f}% - {label}")
+            print(f"{img_path.name}: {pct:.1f}% - {label}  ({elapsed_ms:.2f} ms)")
         else:
-            print(f"{img_path.name}: keine Erkennung")
+            print(f"{img_path.name}: keine Erkennung  ({elapsed_ms:.2f} ms)")
+
+    avg_ms = sum(inference_times) / len(inference_times)
+    print(f"\n--- Durchschnittliche Inferenzzeit: {avg_ms:.2f} ms "
+          f"(ueber {len(inference_times)} Bilder) ---")
 
 
 if __name__ == "__main__":
