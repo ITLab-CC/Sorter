@@ -19,6 +19,8 @@ Python-3.9.0.tar.xz
 spinnaker_sdk.tar.gz
 models
 models/*
+my-models
+my-models/*
 
 **utils/__pycache__
 **old/.venv*

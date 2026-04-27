@@ -14,11 +14,17 @@
 #
 # Optional: append `--gpus all` to use the host GPU via the NVIDIA Container Toolkit.
 # =============================================================================
-FROM nvidia/cuda:11.8.0-cudnn8-runtime-ubuntu20.04
+# NOTE: the `devel` (not `runtime`) CUDA image is required because TensorFlow's
+# XLA JIT needs `libdevice.10.bc`, `ptxas` and friends, which are only present
+# in -devel-. Without them training fails with:
+#   error: Can't find libdevice directory ${CUDA_DIR}/nvvm/libdevice
+#   UNKNOWN: JIT compilation failed.
+FROM nvidia/cuda:11.8.0-cudnn8-devel-ubuntu20.04
 
 ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1
+    PIP_NO_CACHE_DIR=1 \
+    XLA_FLAGS=--xla_gpu_cuda_data_dir=/usr/local/cuda
 
 # ---- System packages ---------------------------------------------------------
 # libgl1 + libglib2.0-0 are required by opencv-python, which is pulled in by the
