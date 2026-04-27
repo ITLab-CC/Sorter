@@ -32,7 +32,8 @@ sudo apt install -y \
     libgl1 \
     libglib2.0-0 \
     ffmpeg \
-    protobuf-compiler
+    protobuf-compiler \
+    libedgetpu1-std
 
 curl https://pyenv.run | bash
 
