@@ -55,9 +55,19 @@ pyenv local 3.10.20 3.9.25
 
 python3.10 -m venv .venv-3.10
 export SPINNAKER_GENTL64_CTI=/opt/spinnaker/lib/spinnaker-gentl/Spinnaker_GenTL.cti
-.venv-3.10/bin/pip install --upgrade pip
+.venv-3.10/bin/pip install --upgrade pip setuptools wheel
 .venv-3.10/bin/pip install -r ./actuator/requirements-3.10.txt
 .venv-3.10/bin/pip install -r ./sensor/requirements-3.10.txt
+
+# Coral Edge TPU (pycoral + tflite-runtime for Python 3.10)
+mkdir -p ~/coral-wheels
+wget -O ~/coral-wheels/tflite_runtime-2.5.0.post1-cp310-cp310-linux_x86_64.whl \
+  "https://github.com/cappittall/pycoral_whl_4_python3.10/raw/main/tools/tflite_runtime-2.5.0.post1-cp310-cp310-linux_x86_64.whl"
+wget -O ~/coral-wheels/pycoral-2.0.0-cp310-cp310-linux_x86_64.whl \
+  "https://github.com/cappittall/pycoral_whl_4_python3.10/raw/main/tools/pycoral-2.0.0-cp310-cp310-linux_x86_64.whl"
+.venv-3.10/bin/pip install ~/coral-wheels/tflite_runtime-2.5.0.post1-cp310-cp310-linux_x86_64.whl
+.venv-3.10/bin/pip install ~/coral-wheels/pycoral-2.0.0-cp310-cp310-linux_x86_64.whl
+.venv-3.10/bin/pip install "numpy<2" Pillow
 
 cd sensor
 ```
@@ -274,7 +284,13 @@ sudo .venv-3.10/bin/python test_coral.py \
   --image dataset/red/frame_0000.png
 ```
 
-Typical inference time on the Edge TPU is ~20 ms per frame.
+To classify all images in `dataset/mixed-not-labeled/` at once:
+
+```bash
+sudo .venv-3.10/bin/python classify_mixed.py
+```
+
+Typical inference time on the Edge TPU is ~6 ms per frame.
 
 ## Sources
 - **Model:** [SSD MobileNet V2 320x320 (COCO17 TPU-8)](http://download.tensorflow.org/models/object_detection/tf2/20200711/ssd_mobilenet_v2_320x320_coco17_tpu-8.tar.gz)

@@ -1,7 +1,7 @@
 """Classify all images in dataset/mixed-not-labeled/ using the Coral Edge TPU.
 
 Usage:
-    sudo .venv-3.9/bin/python classify_mixed.py
+    sudo .venv-3.10/bin/python classify_mixed.py
 
 Output format per image:
     filename: 97.3% - red
