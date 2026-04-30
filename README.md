@@ -47,10 +47,9 @@ export PYENV_ROOT="$HOME/.pyenv"
 command -v pyenv >/dev/null || export PATH="$PYENV_ROOT/bin:$PATH"
 eval "$(pyenv init -)"
 
-pyenv install 3.9.25
 pyenv install 3.10.20
 
-pyenv local 3.10.20 3.9.25
+pyenv local 3.10.20
 
 
 python3.10 -m venv .venv-3.10
@@ -58,21 +57,27 @@ export SPINNAKER_GENTL64_CTI=/opt/spinnaker/lib/spinnaker-gentl/Spinnaker_GenTL.
 .venv-3.10/bin/pip install --upgrade pip setuptools wheel
 .venv-3.10/bin/pip install -r ./actuator/requirements-3.10.txt
 .venv-3.10/bin/pip install -r ./sensor/requirements-3.10.txt
-
-# Coral Edge TPU (pycoral + tflite-runtime for Python 3.10)
-mkdir -p ~/coral-wheels
-wget -O ~/coral-wheels/tflite_runtime-2.5.0.post1-cp310-cp310-linux_x86_64.whl \
-  "https://github.com/cappittall/pycoral_whl_4_python3.10/raw/main/tools/tflite_runtime-2.5.0.post1-cp310-cp310-linux_x86_64.whl"
-wget -O ~/coral-wheels/pycoral-2.0.0-cp310-cp310-linux_x86_64.whl \
-  "https://github.com/cappittall/pycoral_whl_4_python3.10/raw/main/tools/pycoral-2.0.0-cp310-cp310-linux_x86_64.whl"
-.venv-3.10/bin/pip install ~/coral-wheels/tflite_runtime-2.5.0.post1-cp310-cp310-linux_x86_64.whl
-.venv-3.10/bin/pip install ~/coral-wheels/pycoral-2.0.0-cp310-cp310-linux_x86_64.whl
-.venv-3.10/bin/pip install "numpy<2" Pillow
-
-cd sensor
+.venv-3.10/bin/pip install -r requirements-3.10.txt
 ```
 
-Downloade the python and the sdk version of the Spinnaker SDK from the following link to the sensor folder: 
+
+# Coral Edge TPU (pycoral + tflite-runtime for Python 3.10)
+But if you are using ARM architecture (e.g. Raspberry Pi), you have to use the following commands:
+```bash
+mkdir -p ~/coral-wheels
+wget -O ~/coral-wheels/tflite_runtime-2.12.0-cp310-cp310-linux_aarch64.whl \
+  "https://github.com/oberluz/pycoral/releases/download/2.12.0/tflite_runtime-2.12.0-cp310-cp310-linux_aarch64.whl"
+
+wget -O ~/coral-wheels/pycoral-2.12.0-cp310-cp310-linux_aarch64.whl \
+  "https://github.com/oberluz/pycoral/releases/download/2.12.0/pycoral-2.12.0-cp310-cp310-linux_aarch64.whl"
+
+.venv-3.10/bin/pip install ~/coral-wheels/tflite_runtime-2.12.0-cp310-cp310-linux_aarch64.whl
+.venv-3.10/bin/pip install ~/coral-wheels/pycoral-2.12.0-cp310-cp310-linux_aarch64.whl
+```
+
+
+
+Now downloade the python and the sdk version of the Spinnaker SDK from the following link to the sensor folder: 
 
 https://www.teledynevisionsolutions.com/support/support-center/software-firmware-downloads/iis/spinnaker-sdk-download/spinnaker-sdk--download-files/?pn=Spinnaker+SDK&vn=Spinnaker+SDK
 
@@ -82,6 +87,7 @@ There should be two files:
 - - (Linux Ubuntu 22.04 -- ARM64 Python 3.10) 'spinnaker_python-4.3.0.189-cp310-cp310-linux_aarch64.tar.gz'
 
 ```bash
+cd sensor
 mkdir -p spinnaker_sdk spinnaker_python
 tar -xzvf spinnaker-4.3.0.189-Ubuntu22.04-arm64-pkg.tar.gz -C spinnaker_sdk
 tar -xzvf spinnaker_python-4.3.0.189-cp310-cp310-linux_aarch64.tar.gz -C spinnaker_python
@@ -92,14 +98,12 @@ cd spinnaker_sdk/spinnaker-4.3.0.189-arm64/
 
 ```bash
 cd ../../spinnaker_python
-.venv-3.10/bin/pip install spinnaker_python-4.3.0.189-cp310-cp310-linux_aarch64.whl
+../../.venv-3.10/bin/pip install spinnaker_python-4.3.0.189-cp310-cp310-linux_aarch64.whl
 
 cd ..
 rm -rf spinnaker_python spinnaker_sdk
 
 cd ..
-
-sudo .venv-3.10/bin/python main.py
 ```
 
 # Create a Dataset
@@ -151,7 +155,7 @@ sudo .venv-3.10/bin/python label_dataset.py
 3. Review the labels
 Now you have a lot of labeled pictures but the labels are not perfect. You can use the following tool to review the labels and correct them if necessary. The tool is called Label Studio and it is a web-based tool for labeling data. You can use it to review the labels and correct them if necessary. The tool will save the corrected labels in the same dataset-[color].json files in the dataset folder. To start Label Studio, run the following command:
 ```bash
-curl -sSL https://get.docker.com | sh
+curl -sSL https://get.docker.com | sudo sh
 mkdir label-studio
 chown :0 label-studio
 sudo docker run -p 8080:8080 -v $(pwd)/label-studio/dataset:/label-studio/data --name label-studio -d heartexlabs/label-studio:latest
@@ -167,6 +171,9 @@ Now you can import the images in Label Studio by uploading the json files in the
 ![Label Studio](docs-img/LabelStudio.png)
 
 4. Train the model
+
+IMPORTEND: THIS STEP HAS TO BE PERFORMED ON A MACHINE WITH A GPU. IT CAN BE YOUR LOCAL MACHINE OR A CLOUD MACHINE (e.g. Google Colab, AWS EC2, etc.). WITHOUT A GPU THIS STEP WILL TAKE A VERY LONG TIME. SO DONT TRY IT ON THE RASPBERRY PI!!!
+
 A single self-contained Docker image performs the **complete** pipeline – TFRecord generation, fine-tuning of SSD MobileNet V2, TFLite export, INT8 quantization and Edge TPU compilation – with `dataset/` as the only input and `my-models/` as the only output. The image bakes in TensorFlow 2.11, the TF Object Detection API, the pretrained checkpoint and the Edge TPU compiler.
 
 ### 4.1 Build the image (once)
@@ -177,12 +184,42 @@ sudo docker build -f Dockerfile.train -t sorter-train:latest .
 ### 4.2 Run the full pipeline
 With your labeled `dataset/` populated by step 3 (containing both the per-color image folders and the `dataset-*.json` files exported from Label Studio):
 
+First lets install docker with nvidia support to use the GPU for training. If you already have it installed, you can skip this step.
+```bash
+curl -sSL https://get.docker.com | sudo sh
+
+sudo apt-get update && sudo apt-get install -y --no-install-recommends \
+   ca-certificates \
+   curl \
+   gnupg2
+
+curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg \
+  && curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | \
+    sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
+    sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
+
+sudo apt-get update
+
+export NVIDIA_CONTAINER_TOOLKIT_VERSION=1.19.0-1
+  sudo apt-get install -y \
+      nvidia-container-toolkit=${NVIDIA_CONTAINER_TOOLKIT_VERSION} \
+      nvidia-container-toolkit-base=${NVIDIA_CONTAINER_TOOLKIT_VERSION} \
+      libnvidia-container-tools=${NVIDIA_CONTAINER_TOOLKIT_VERSION} \
+      libnvidia-container1=${NVIDIA_CONTAINER_TOOLKIT_VERSION}
+
+sudo nvidia-ctk runtime configure --runtime=docker
+
+sudo systemctl restart docker
+```
+
+Now lets train the model. The command mounts the `dataset/` and `my-models/` folders as volumes inside the container, so that the container can read the dataset and write the models to the host filesystem. The `--gpus all` flag enables GPU acceleration if available.
 ```bash
 mkdir -p my-models
 
 sudo docker run --rm \
   -v "$(pwd)/dataset:/dataset" \
   -v "$(pwd)/my-models:/my-models" \
+  --gpus all \
   sorter-train:latest
 ```
 
@@ -224,56 +261,6 @@ sudo docker run --rm \
   -o /my-models /my-models/ssd_mobilenet_v2_quant.tflite
 ```
 
-### 4.4 (Optional) Native pyenv path without Docker
-If you prefer not to use Docker, the same workflow runs natively under Python 3.9:
-
-```bash
-python3.9 -m venv .venv-3.9
-.venv-3.9/bin/pip install --upgrade pip
-.venv-3.9/bin/pip install -r requirements-3.9.txt
-
-# Object Detection API
-git clone https://github.com/tensorflow/models.git   # skip if already present
-cd models/research
-protoc object_detection/protos/*.proto --python_out=.
-cp object_detection/packages/tf2/setup.py .
-cd ../../
-.venv-3.9/bin/python -m pip install ./models/research/
-
-# Pretrained checkpoint
-mkdir -p models/pretrained
-curl -L http://download.tensorflow.org/models/object_detection/tf2/20200711/ssd_mobilenet_v2_320x320_coco17_tpu-8.tar.gz \
-  | tar -xz -C models/pretrained
-
-# TFRecords + training (writes records to dataset/)
-sudo .venv-3.9/bin/python convert_dataset.py
-sudo .venv-3.9/bin/python models/research/object_detection/model_main_tf2.py \
-  --pipeline_config_path=pipeline.config --model_dir=my-models --alsologtostderr
-
-# Export + quantize
-.venv-3.9/bin/python models/research/object_detection/export_tflite_graph_tf2.py \
-  --pipeline_config_path pipeline.config \
-  --trained_checkpoint_dir my-models \
-  --output_directory my-models/tflite_export
-.venv-3.9/bin/python docker/quantize.py \
-  --saved-model my-models/tflite_export/saved_model \
-  --dataset-dir dataset \
-  --out my-models/ssd_mobilenet_v2_quant.tflite
-```
-
-The `edgetpu_compiler` itself is only available via Google's APT repo. Install it on Debian with:
-
-```bash
-curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg \
-  | sudo gpg --dearmor -o /usr/share/keyrings/coral-edgetpu-archive-keyring.gpg
-echo "deb [signed-by=/usr/share/keyrings/coral-edgetpu-archive-keyring.gpg] https://packages.cloud.google.com/apt coral-edgetpu-stable main" \
-  | sudo tee /etc/apt/sources.list.d/coral-edgetpu.list
-sudo apt-get update && sudo apt-get install -y edgetpu-compiler
-
-edgetpu_compiler -o my-models my-models/ssd_mobilenet_v2_quant.tflite
-cp my-models/ssd_mobilenet_v2_quant_edgetpu.tflite marbel_coral.tflite
-```
-
 ### 4.5 Smoke-test the compiled model on the Coral USB Accelerator
 With the accelerator plugged in:
 
@@ -292,16 +279,33 @@ sudo .venv-3.10/bin/python classify_mixed.py
 
 Typical inference time on the Edge TPU is ~6 ms per frame.
 
-## Sources
-- **Model:** [SSD MobileNet V2 320x320 (COCO17 TPU-8)](http://download.tensorflow.org/models/object_detection/tf2/20200711/ssd_mobilenet_v2_320x320_coco17_tpu-8.tar.gz)
-- **Framework:** [TensorFlow Object Detection API](https://github.com/tensorflow/models/tree/master/research/object_detection)
-- **Edge TPU compiler:** [coral.ai/docs/edgetpu/compiler](https://coral.ai/docs/edgetpu/compiler/)
 
 5. Run the model
-Now you have a trained model and you can use it to sort the marbles. Place `marbel_coral.tflite` and `labels.txt` next to `main.py` and start the full sorter:
+Now you have a trained model and you can use it to sort the marbles. Place the trained model from `my-models/marbel_coral.tflite` on the raspberry pi and start the full sorter:
 
 ```bash
 sudo .venv-3.10/bin/python main.py
 ```
 
 Enjoy your sorted marbles!
+
+
+## Sources
+- **Model:** [SSD MobileNet V2 320x320 (COCO17 TPU-8)](http://download.tensorflow.org/models/object_detection/tf2/20200711/ssd_mobilenet_v2_320x320_coco17_tpu-8.tar.gz)
+- **Framework:** [TensorFlow Object Detection API](https://github.com/tensorflow/models/tree/master/research/object_detection)
+- **Edge TPU compiler:** [coral.ai/docs/edgetpu/compiler](https://coral.ai/docs/edgetpu/compiler/)
+
+
+If you are using x86_64 architecture, you can install the pycoral and tflite-runtime packages from PyPI.
+
+```
+mkdir -p ~/coral-wheels
+wget -O ~/coral-wheels/tflite_runtime-2.5.0.post1-cp310-cp310-linux_x86_64.whl \
+  "https://github.com/cappittall/pycoral_whl_4_python3.10/raw/main/tools/tflite_runtime-2.5.0.post1-cp310-cp310-linux_x86_64.whl"
+wget -O ~/coral-wheels/pycoral-2.0.0-cp310-cp310-linux_x86_64.whl \
+  "https://github.com/cappittall/pycoral_whl_4_python3.10/raw/main/tools/pycoral-2.0.0-cp310-cp310-linux_x86_64.whl"
+.venv-3.10/bin/pip install ~/coral-wheels/tflite_runtime-2.5.0.post1-cp310-cp310-linux_x86_64.whl
+.venv-3.10/bin/pip install ~/coral-wheels/pycoral-2.0.0-cp310-cp310-linux_x86_64.whl
+
+cd sensor
+```
