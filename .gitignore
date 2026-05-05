@@ -10,6 +10,7 @@ spinnaker.tar.gz
 *.zip
 *.json
 *.record
+*.deb
 Python-3.10.0
 Python-3.10.0/*
 Python-3.9.0
