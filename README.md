@@ -1,311 +1,63 @@
 # AI-Sorter
-This is a project for sorting marbles using AI. The project is divided into three main modules: the Sensor module, the Actuator module and the AI module. The Sensor module is responsible for collecting data from the sorter, the Actuator module is responsible for controlling the physical components of the system, and the AI module is responsible for processing the data and making decisions based on it.
 
-## Installation Docker
-TODO
+An AI-powered marble sorting machine. A camera detects falling marbles, a neural network classifies them by color, and a solenoid actuator sorts them into the correct bin — all in real time on a Raspberry Pi with a Coral Edge TPU.
 
-## Installation
-```bash
-sudo apt update 
-sudo apt install -y \
-    udev \
-    ethtool \
-    libusb-1.0-0 \
-    iproute2 \
-    iputils-ping \
-    net-tools \
-    build-essential \
-    libssl-dev \
-    zlib1g-dev \
-    libbz2-dev \
-    libreadline-dev \
-    libsqlite3-dev \
-    curl \
-    git \
-    libncursesw5-dev \
-    xz-utils \
-    tk-dev \
-    libxml2-dev \
-    libxmlsec1-dev \
-    libffi-dev \
-    liblzma-dev \
-    libgl1 \
-    libglib2.0-0 \
-    ffmpeg \
-    protobuf-compiler \
-    libedgetpu1-max
+## What You Need
 
-curl https://pyenv.run | bash
+This project requires **two machines**:
 
-LINE1='export PYENV_ROOT="$HOME/.pyenv"'
-LINE2='command -v pyenv >/dev/null || export PATH="$PYENV_ROOT/bin:$PATH"'
-LINE3='eval "$(pyenv init -)"'
-grep -qF "$LINE1" ~/.bashrc || echo "$LINE1" >> ~/.bashrc
-grep -qF "$LINE2" ~/.bashrc || echo "$LINE2" >> ~/.bashrc
-grep -qF "$LINE3" ~/.bashrc || echo "$LINE3" >> ~/.bashrc
-export PYENV_ROOT="$HOME/.pyenv"
-command -v pyenv >/dev/null || export PATH="$PYENV_ROOT/bin:$PATH"
-eval "$(pyenv init -)"
+### Raspberry Pi (runs the sorter)
 
-pyenv install 3.10.20
+| Component | Description |
+|---|---|
+| **Raspberry Pi** | Runs the sorting software (tested on Pi 4/5, Ubuntu 22.04 ARM64) |
+| **FLIR Machine Vision Camera** | Captures images of marbles (uses the Spinnaker SDK) |
+| **Coral USB Accelerator** | Runs the trained model for real-time inference (~6 ms/frame) |
+| **Elevator motor** | Feeds marbles into the sorting area |
+| **Solenoid actuator** | Diverts marbles into the correct bin |
+| **NeoPixel LED strip** | Illuminates the sorting area for consistent images |
+| **Light-beam sensor** | Detects when a marble passes through |
 
-pyenv local 3.10.20
+### Training PC (trains the AI model)
 
+| Component | Description |
+|---|---|
+| **PC with NVIDIA GPU** | Trains the SSD MobileNet V2 model (fine-tuning ~50 000 steps) |
+| **Docker + NVIDIA Container Toolkit** | The training pipeline runs inside a Docker container with GPU access |
 
-python3.10 -m venv .venv-3.10
-export SPINNAKER_GENTL64_CTI=/opt/spinnaker/lib/spinnaker-gentl/Spinnaker_GenTL.cti
-.venv-3.10/bin/pip install --upgrade pip setuptools wheel
-.venv-3.10/bin/pip install -r ./actuator/requirements-3.10.txt
-.venv-3.10/bin/pip install -r ./sensor/requirements-3.10.txt
-.venv-3.10/bin/pip install -r requirements-3.10.txt
+> The training PC can be a local desktop, a cloud VM (AWS EC2, Google Cloud, etc.), or Google Colab. **Do not attempt training on the Raspberry Pi.**
+
+## Step-by-Step Guide
+
+Follow the guides below in order:
+
+| Step | Guide | Machine |
+|---|---|---|
+| 0 | [Build the Sorter](docs/00-build-the-sorter.md) *(TODO)* | Workbench |
+| 1 | [Raspberry Pi Setup](docs/01-raspberry-pi-setup.md) | Raspberry Pi |
+| 2 | [Training PC Setup](docs/02-training-pc-setup.md) | Training PC |
+| 3 | [Create a Dataset](docs/03-create-dataset.md) | Raspberry Pi |
+| 4 | [Train the Model](docs/04-train-model.md) | Training PC |
+| 5 | [Run the Sorter](docs/05-run-sorter.md) | Raspberry Pi |
+
+## Project Structure
+
 ```
-
-
-# Coral Edge TPU (pycoral + tflite-runtime for Python 3.10)
-But if you are using ARM architecture (e.g. Raspberry Pi), you have to use the following commands:
-```bash
-mkdir -p ~/coral-wheels
-wget -O ~/coral-wheels/tflite_runtime-2.12.0-cp310-cp310-linux_aarch64.whl \
-  "https://github.com/oberluz/pycoral/releases/download/2.12.0/tflite_runtime-2.12.0-cp310-cp310-linux_aarch64.whl"
-
-wget -O ~/coral-wheels/pycoral-2.12.0-cp310-cp310-linux_aarch64.whl \
-  "https://github.com/oberluz/pycoral/releases/download/2.12.0/pycoral-2.12.0-cp310-cp310-linux_aarch64.whl"
-
-.venv-3.10/bin/pip install ~/coral-wheels/tflite_runtime-2.12.0-cp310-cp310-linux_aarch64.whl
-.venv-3.10/bin/pip install ~/coral-wheels/pycoral-2.12.0-cp310-cp310-linux_aarch64.whl
+.
+├── actuator/          # Motor, solenoid and LED control
+├── sensor/            # Camera and light-beam sensor
+├── dataset/           # Training images (created in step 3)
+├── my-models/         # Trained models (created in step 4)
+├── docs/              # Step-by-step setup guides
+├── create_unlabeled_dataset.py
+├── label_dataset.py
+├── main.py            # Entry point for the sorter
+├── Dockerfile.train   # Docker image for training
+└── pipeline.config    # SSD MobileNet V2 training config
 ```
-
-
-
-Now downloade the python and the sdk version of the Spinnaker SDK from the following link to the sensor folder: 
-
-https://www.teledynevisionsolutions.com/support/support-center/software-firmware-downloads/iis/spinnaker-sdk-download/spinnaker-sdk--download-files/?pn=Spinnaker+SDK&vn=Spinnaker+SDK
-
-There should be two files:
-- For ARM (Raspberry PIs):
-- - (Linux Ubuntu 22.04 --ARM64) 'spinnaker-4.3.0.189-Ubuntu22.04-arm64-pkg.tar.gz'
-- - (Linux Ubuntu 22.04 -- ARM64 Python 3.10) 'spinnaker_python-4.3.0.189-cp310-cp310-linux_aarch64.tar.gz'
-
-```bash
-cd sensor
-mkdir -p spinnaker_sdk spinnaker_python
-tar -xzvf spinnaker-4.3.0.189-Ubuntu22.04-arm64-pkg.tar.gz -C spinnaker_sdk
-tar -xzvf spinnaker_python-4.3.0.189-cp310-cp310-linux_aarch64.tar.gz -C spinnaker_python
-
-cd spinnaker_sdk/spinnaker-4.3.0.189-arm64/
-./install_spinnaker_arm.sh
-```
-
-```bash
-cd ../../spinnaker_python
-../../.venv-3.10/bin/pip install spinnaker_python-4.3.0.189-cp310-cp310-linux_aarch64.whl
-
-cd ..
-rm -rf spinnaker_python spinnaker_sdk
-
-cd ..
-```
-
-# Create a Dataset
-1. Create a lot of pictures
-First put only one color of marbles in the sorter and create a lot of pictures.It is recommended to create at least 200 pictures per marble color. You can use the following code to create a dataset of pictures. The code will save the pictures in the 'dataset/out' folder.
-```py
-sudo .venv-3.10/bin/python create_unlabeled_dataset.py
-```
-
-After that you should have a lot of pictures in the 'dataset/out' folder which all have the same color of marbles. Now rename the out folder to the color of the marbles you used by doing the following command:
-```bash
-mv dataset/out dataset/red
-mkdir -p dataset/out
-```
-
-Now replace all marbels with the next color. You can use the following command to move the elevator motor up to make it easier to change the marbles:
-```bash
-sudo .venv-3.10/bin/python actuator/elevator_motor.py
-```
-
-Now repeat the process until you have a folder for each color of marbles. You should end up with a dataset folder that looks like this:
-```bash
-dataset
-├── black
-│   ├── frame_0000.png
-│   ├── frame_0001.png
-│   └── ...
-├── orange
-│   ├── frame_0000.png
-│   ├── frame_0001.png
-│   └── ...
-├── green
-│   ├── frame_0000.png
-│   ├── frame_0001.png
-│   └── ...
-├── red
-│   ├── frame_0000.png
-│   ├── frame_0001.png
-│   └── ...
-└── ...
-```
-
-2. Label the pictures
-Now you have a lot of pictures of marbles but they are not labeled. You can use the following script to label the pictures automatically. It uses openCV to detect the marbles in the pictures. But its not perfect and you should check the labels and correct them if necessary. The script will save for each folder of pictures as dataset-[color].json files in the dataset folder. These files contain the labels for each picture in the corresponding folder.
-```py
-sudo .venv-3.10/bin/python label_dataset.py
-```
-
-3. Review the labels
-Now you have a lot of labeled pictures but the labels are not perfect. You can use the following tool to review the labels and correct them if necessary. The tool is called Label Studio and it is a web-based tool for labeling data. You can use it to review the labels and correct them if necessary. The tool will save the corrected labels in the same dataset-[color].json files in the dataset folder. To start Label Studio, run the following command:
-```bash
-curl -sSL https://get.docker.com | sudo sh
-mkdir label-studio
-chown :0 label-studio
-sudo docker run -p 8080:8080 -v $(pwd)/label-studio/dataset:/label-studio/data --name label-studio -d heartexlabs/label-studio:latest
-```
-Now open http://localhost:8080 in your web browser and you should see the Label Studio interface.
-
-To import all the images you have to run a local http server which serves the dataset folder. You can do this by running the following command in the dataset folder:
-```bash
-sudo python3 http-server.py
-```
-Now you can import the images in Label Studio by uploading the json files in the dataset folder. You can do this by clicking on the 'Import' button in the Label Studio interface and selecting the json files in the dataset folder. After that you should see all the images in the Label Studio interface and you can review the labels and correct them if necessary.
-
-![Label Studio](docs-img/LabelStudio.png)
-
-4. Train the model
-
-IMPORTEND: THIS STEP HAS TO BE PERFORMED ON A MACHINE WITH A GPU. IT CAN BE YOUR LOCAL MACHINE OR A CLOUD MACHINE (e.g. Google Colab, AWS EC2, etc.). WITHOUT A GPU THIS STEP WILL TAKE A VERY LONG TIME. SO DONT TRY IT ON THE RASPBERRY PI!!!
-
-A single self-contained Docker image performs the **complete** pipeline – TFRecord generation, fine-tuning of SSD MobileNet V2, TFLite export, INT8 quantization and Edge TPU compilation – with `dataset/` as the only input and `my-models/` as the only output. The image bakes in TensorFlow 2.11, the TF Object Detection API, the pretrained checkpoint and the Edge TPU compiler.
-
-### 4.1 Build the image (once)
-```bash
-sudo docker build -f Dockerfile.train -t sorter-train:latest .
-```
-
-### 4.2 Run the full pipeline
-With your labeled `dataset/` populated by step 3 (containing both the per-color image folders and the `dataset-*.json` files exported from Label Studio):
-
-First lets install docker with nvidia support to use the GPU for training. If you already have it installed, you can skip this step.
-```bash
-curl -sSL https://get.docker.com | sudo sh
-
-sudo apt-get update && sudo apt-get install -y --no-install-recommends \
-   ca-certificates \
-   curl \
-   gnupg2
-
-curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg \
-  && curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | \
-    sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
-    sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
-
-sudo apt-get update
-
-export NVIDIA_CONTAINER_TOOLKIT_VERSION=1.19.0-1
-  sudo apt-get install -y \
-      nvidia-container-toolkit=${NVIDIA_CONTAINER_TOOLKIT_VERSION} \
-      nvidia-container-toolkit-base=${NVIDIA_CONTAINER_TOOLKIT_VERSION} \
-      libnvidia-container-tools=${NVIDIA_CONTAINER_TOOLKIT_VERSION} \
-      libnvidia-container1=${NVIDIA_CONTAINER_TOOLKIT_VERSION}
-
-sudo nvidia-ctk runtime configure --runtime=docker
-
-sudo systemctl restart docker
-```
-
-Now lets train the model. The command mounts the `dataset/` and `my-models/` folders as volumes inside the container, so that the container can read the dataset and write the models to the host filesystem. The `--gpus all` flag enables GPU acceleration if available.
-```bash
-mkdir -p my-models
-
-sudo docker run --rm \
-  -v "$(pwd)/dataset:/dataset" \
-  -v "$(pwd)/my-models:/my-models" \
-  --gpus all \
-  sorter-train:latest
-```
-
-That is the entire training command. The container will, in order:
-
-1. Generate `train.record` / `val.record` (90/10 split) into `my-models/records/`.
-2. Render a container-friendly `pipeline.config` into `my-models/pipeline.config`.
-3. Fine-tune SSD MobileNet V2 (`num_steps: 50000` from `pipeline.config`) – checkpoints land in `my-models/checkpoints/`.
-4. Export a TFLite-friendly `saved_model/` into `my-models/tflite_export/`.
-5. Quantize to INT8 using ~100 calibration images sampled from `/dataset`, producing `my-models/ssd_mobilenet_v2_quant.tflite`.
-6. Compile for the Edge TPU, producing `my-models/ssd_mobilenet_v2_quant_edgetpu.tflite`.
-
-When it finishes you will find in `my-models/`:
-
-- `marbel_coral.tflite` – the Edge TPU model (use this with `test_coral.py` / `main.py`).
-- `ssd_mobilenet_v2_quant.tflite` – the INT8 CPU fallback.
-- `tflite_export/saved_model/` – pre-quantization SavedModel.
-- `checkpoints/` – training checkpoints + TensorBoard event files.
-- `labels.txt` – id-to-name map matching `label_map.pbtxt`.
-
-> **GPU acceleration:** if the host has the NVIDIA Container Toolkit installed, append `--gpus all` to the `docker run` command above. Without it everything still works, just on CPU.
-
-> **Quick smoke test:** to sanity-check the pipeline without waiting for 50 000 training steps, edit `num_steps` in `pipeline.config` (e.g. to `1000`) and rebuild the image.
-
-### 4.3 Inspect intermediate steps (optional)
-The image's entrypoint is `sorter-train`, but you can override it to run individual stages, e.g.:
-
-```bash
-# Drop into a shell inside the image
-sudo docker run --rm -it \
-  -v "$(pwd)/dataset:/dataset" \
-  -v "$(pwd)/my-models:/my-models" \
-  --entrypoint bash sorter-train:latest
-
-# Re-run only the Edge TPU compile step
-sudo docker run --rm \
-  -v "$(pwd)/my-models:/my-models" \
-  --entrypoint edgetpu_compiler sorter-train:latest \
-  -o /my-models /my-models/ssd_mobilenet_v2_quant.tflite
-```
-
-### 4.5 Smoke-test the compiled model on the Coral USB Accelerator
-With the accelerator plugged in:
-
-```bash
-sudo .venv-3.10/bin/python test_coral.py \
-  --model my-models/marbel_coral.tflite \
-  --labels my-models/labels.txt \
-  --image dataset/red/frame_0000.png
-```
-
-To classify all images in `dataset/mixed-not-labeled/` at once:
-
-```bash
-sudo .venv-3.10/bin/python classify_mixed.py
-```
-
-Typical inference time on the Edge TPU is ~6 ms per frame.
-
-
-5. Run the model
-Now you have a trained model and you can use it to sort the marbles. Place the trained model from `my-models/marbel_coral.tflite` on the raspberry pi and start the full sorter:
-
-```bash
-sudo .venv-3.10/bin/python main.py
-```
-
-Enjoy your sorted marbles!
-
 
 ## Sources
+
 - **Model:** [SSD MobileNet V2 320x320 (COCO17 TPU-8)](http://download.tensorflow.org/models/object_detection/tf2/20200711/ssd_mobilenet_v2_320x320_coco17_tpu-8.tar.gz)
 - **Framework:** [TensorFlow Object Detection API](https://github.com/tensorflow/models/tree/master/research/object_detection)
 - **Edge TPU compiler:** [coral.ai/docs/edgetpu/compiler](https://coral.ai/docs/edgetpu/compiler/)
-
-
-If you are using x86_64 architecture, you can install the pycoral and tflite-runtime packages from PyPI.
-
-```
-mkdir -p ~/coral-wheels
-wget -O ~/coral-wheels/tflite_runtime-2.5.0.post1-cp310-cp310-linux_x86_64.whl \
-  "https://github.com/cappittall/pycoral_whl_4_python3.10/raw/main/tools/tflite_runtime-2.5.0.post1-cp310-cp310-linux_x86_64.whl"
-wget -O ~/coral-wheels/pycoral-2.0.0-cp310-cp310-linux_x86_64.whl \
-  "https://github.com/cappittall/pycoral_whl_4_python3.10/raw/main/tools/pycoral-2.0.0-cp310-cp310-linux_x86_64.whl"
-.venv-3.10/bin/pip install ~/coral-wheels/tflite_runtime-2.5.0.post1-cp310-cp310-linux_x86_64.whl
-.venv-3.10/bin/pip install ~/coral-wheels/pycoral-2.0.0-cp310-cp310-linux_x86_64.whl
-
-cd sensor
-```
