@@ -12,6 +12,10 @@ Transfer the `dataset/` folder (with both the per-color image folders **and** th
 ## 4.2 Run the full training pipeline
 
 ```bash
+sudo docker build -f Dockerfile.train -t sorter-train:latest .
+```
+
+```bash
 mkdir -p my-models
 
 sudo docker run --rm \
@@ -46,27 +50,13 @@ When training finishes you will find in `my-models/`:
 
 To sanity-check the pipeline without waiting for 50 000 steps, edit `num_steps` in `pipeline.config` (e.g. to `1000`) and rebuild the image.
 
-## 4.5 Inspect intermediate steps (optional)
-
-You can override the container entrypoint to run individual stages:
-
 ```bash
-# Drop into a shell inside the image
-sudo docker run --rm -it \
-  -v "$(pwd)/dataset:/dataset" \
-  -v "$(pwd)/my-models:/my-models" \
-  --entrypoint bash sorter-train:latest
-
-# Re-run only the Edge TPU compile step
-sudo docker run --rm \
-  -v "$(pwd)/my-models:/my-models" \
-  --entrypoint edgetpu_compiler sorter-train:latest \
-  -o /my-models /my-models/ssd_mobilenet_v2_quant.tflite
+sudo docker build -f Dockerfile.train -t sorter-train:latest .
 ```
 
-## 4.6 Smoke-test on the Coral USB Accelerator
+## 4.5 Test on the Coral USB Accelerator
 
-With the accelerator plugged in:
+With the coral plugged in you can also test the compiled model on the training PC, not only on the Raspberry Pi. This is a good way to verify that the model works before deploying it.
 
 ```bash
 sudo .venv-3.10/bin/python test_coral.py \

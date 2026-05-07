@@ -107,6 +107,7 @@ pyenv local 3.10.20
 
 python3.10 -m venv .venv-3.10
 .venv-3.10/bin/pip install --upgrade pip setuptools wheel
+.venv-3.10/bin/pip install -r requirements-3.10.txt
 
 mkdir -p ~/coral-wheels
 wget -O ~/coral-wheels/tflite_runtime-2.5.0.post1-cp310-cp310-linux_x86_64.whl \

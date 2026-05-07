@@ -45,10 +45,26 @@ dataset/
 
 ## 3.2 Auto-label the images
 
-This script uses OpenCV to detect marbles and generate bounding-box labels automatically. The results are saved as `dataset-<color>.json` files inside the `dataset/` folder.
+This script uses OpenCV to detect marbles and generate bounding-box labels automatically. It will not detect the color of the marbles. Instead it will take the folder name as the color label. The results are saved as `dataset-<color>.json` files inside the `dataset/` folder.
 
 ```bash
 sudo .venv-3.10/bin/python label_dataset.py
+```
+
+Result should look like this:
+```
+dataset/
+├── black
+├── green
+├── mixed-not-labeled
+├── orange
+├── red
+├── white
+├── dataset-black.json
+├── dataset-green.json
+├── dataset-orange.json
+├── dataset-red.json
+└── dataset-white.json
 ```
 
 > The auto-labeler is not perfect — you **must** review and correct the labels in the next step.
@@ -59,28 +75,50 @@ sudo .venv-3.10/bin/python label_dataset.py
 
 ```bash
 curl -sSL https://get.docker.com | sudo sh
-mkdir label-studio
-chown :0 label-studio
-sudo docker run -p 8080:8080 \
-  -v $(pwd)/label-studio/dataset:/label-studio/data \
+```
+
+```bash
+mkdir -p label-studio
+sudo chown :0 label-studio
+sudo docker run --network host \
+  -v $(pwd)/label-studio:/label-studio/data \
   --name label-studio -d heartexlabs/label-studio:latest
+
+echo "Label Studio is starting up. Please wait a moment (1min)..."
+sleep 60
+echo "Label Studio should now be running at http://localhost:8080 (oder über die IP-Adresse des Hosts)"
 ```
 
 Open <http://localhost:8080> in your browser.
 
 ### Serve images locally
 
-Label Studio needs HTTP access to the images. Start the included server:
+Label Studio needs HTTP access to the images. Start the included server on port 1000:
 
 ```bash
 sudo python3 http-server.py
 ```
+
+![alt text](img/create-dataset/http-server.png)
 
 ### Import and review
 
 1. Click **Import** in Label Studio.
 2. Upload the `dataset-<color>.json` files from the `dataset/` folder.
 3. Review each image and correct any wrong bounding boxes.
+
+![alt text](img/create-dataset/1-LabelStudio.png)
+![alt text](img/create-dataset/2-LabelStudio.png)
+![alt text](image.png)
+![alt text](image-1.png)
+![alt text](image-2.png)
+![alt text](image-3.png)
+![alt text](image-4.png)
+![alt text](image-5.png)
+![alt text](image-6.png)
+![alt text](image-7.png)
+![alt text](image-8.png)
+![alt text](image-9.png)
 
 ![Label Studio](img/create-dataset/LabelStudio.png)
 

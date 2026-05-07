@@ -5,7 +5,6 @@ spinnaker_sdk/*
 spinnaker_python*.tar.gz
 spinnaker-*.tar.gz
 spinnaker.tar.gz
-*.png
 *.csv
 *.zip
 *.json
@@ -24,6 +23,8 @@ my-models
 my-models/*
 label-studio
 label-studio/*
+dataset
+dataset/*
 
 **utils/__pycache__
 **old/.venv*
