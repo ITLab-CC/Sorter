@@ -32,7 +32,7 @@ JSON_FILES = [
 
 
 def create_tf_example(data_item, dataset_dir, label_map):
-    url = data_item["data"]["image_url"]
+    url = data_item["data"]["image"]
     # e.g. http://127.0.0.1:1000/black/frame_0000.png -> <dataset_dir>/black/frame_0000.png
     path_parts = url.split("/")[-2:]
     img_path = os.path.join(dataset_dir, *path_parts)

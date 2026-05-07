@@ -25,7 +25,7 @@ LABEL_MAP = {
 def create_tf_example(data_item, label_map):
     # Pfad zum Bild auflösen (URL zu lokalem Pfad)
     # Beispiel: http://127.0.0.1:1000/black/frame_0000.png -> dataset/black/frame_0000.png
-    url = data_item['data']['image_url']
+    url = data_item['data']['image']
     path_parts = url.split('/')[-2:] # Nimmt "black/frame_0000.png"
     img_path = os.path.join(DATASET_DIR, *path_parts)
     

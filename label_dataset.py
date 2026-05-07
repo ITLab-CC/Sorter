@@ -9,6 +9,7 @@ For each color subfolder under ``dataset/`` this script:
 
 import json
 import os
+import datetime
 
 import cv2
 import numpy as np
@@ -64,11 +65,7 @@ def classify_color(bgr_roi, mask=None):
 
 
 def process_image(image_path, forced_label=None):
-    """Detect marble in ``image_path`` and return a result dict or None.
-
-    If ``forced_label`` is provided, it overrides the HSV-based classification
-    (useful when the source folder name already indicates the ground-truth class).
-    """
+    """Detect marble in ``image_path`` and return a result dict or None."""
     frame_bgr = cv2.imread(image_path)
     if frame_bgr is None:
         print(f"Warning: could not load {image_path}")
@@ -80,9 +77,6 @@ def process_image(image_path, forced_label=None):
     start_x = max(0, width // 2 - CROP_SIZE_X // 2)
     start_y = max(0, height // 2 - CROP_SIZE_Y // 2)
     center_crop = frame_bgr[start_y:start_y + CROP_SIZE_Y, start_x:start_x + CROP_SIZE_X]
-    # start_x = 0
-    # start_y = 0
-    # center_crop = frame_bgr
 
     # Grayscale -> Blur -> Threshold -> Invert.
     frame_gray = cv2.cvtColor(center_crop, cv2.COLOR_BGR2GRAY)
@@ -126,8 +120,8 @@ def process_image(image_path, forced_label=None):
     }
 
 
-def to_label_studio_task(result, folder_name):
-    """Convert a ``process_image`` result dict into a Label Studio task."""
+def to_label_studio_task(result, folder_name, task_id):
+    """Convert a ``process_image`` result dict into a valid Label Studio Import format."""
     img_width = float(result["width"])
     img_height = float(result["height"])
     xmin = float(result["xmin"])
@@ -142,25 +136,33 @@ def to_label_studio_task(result, folder_name):
     box_height = ((ymax - ymin) / img_height) * 100 if img_height else 0
 
     return {
+        "id": task_id,
         "data": {
-            "image_url": IMAGE_URL_TEMPLATE.format(
+            "image": IMAGE_URL_TEMPLATE.format(
                 folder=folder_name, filename=result["filename"]
             )
         },
-        "predictions": [{
-            "result": [{
-                "from_name": "label",
-                "to_name": "image",
-                "type": "rectanglelabels",
-                "value": {
-                    "rectanglelabels": [result["class"]],
-                    "x": x,
-                    "y": y,
-                    "width": box_width,
-                    "height": box_height,
-                },
-            }]
-        }],
+        "annotations": [
+            {
+                "result": [
+                    {
+                        "from_name": "label",
+                        "to_name": "image",
+                        "type": "rectanglelabels",
+                        "original_width": int(img_width),
+                        "original_height": int(img_height),
+                        "value": {
+                            "x": x,
+                            "y": y,
+                            "width": box_width,
+                            "height": box_height,
+                            "rotation": 0,
+                            "rectanglelabels": [result["class"]]
+                        }
+                    }
+                ]
+            }
+        ]
     }
 
 
@@ -176,16 +178,20 @@ def process_folder(folder_path, label):
 
     tasks = []
     folder_name = os.path.basename(folder_path.rstrip(os.sep))
+    task_id = 1
+    
     for filename in filenames:
         path = os.path.join(folder_path, filename)
         result = process_image(path, forced_label=label)
         if result is None:
             continue
-        tasks.append(to_label_studio_task(result, folder_name))
+            
+        tasks.append(to_label_studio_task(result, folder_name, task_id))
         print(
             f"[{label}] {filename}: "
             f"bbox=({result['xmin']},{result['ymin']},{result['xmax']},{result['ymax']})"
         )
+        task_id += 1
 
     json_path = os.path.join(DATASET_ROOT, f"dataset-{label}.json")
     with open(json_path, "w") as f:
