@@ -22,6 +22,8 @@ models
 models/*
 my-models
 my-models/*
+label-studio
+label-studio/*
 
 **utils/__pycache__
 **old/.venv*
