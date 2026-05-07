@@ -109,18 +109,16 @@ sudo python3 http-server.py
 
 ![alt text](img/create-dataset/1-LabelStudio.png)
 ![alt text](img/create-dataset/2-LabelStudio.png)
-![alt text](image.png)
-![alt text](image-1.png)
-![alt text](image-2.png)
-![alt text](image-3.png)
-![alt text](image-4.png)
-![alt text](image-5.png)
-![alt text](image-6.png)
-![alt text](image-7.png)
-![alt text](image-8.png)
-![alt text](image-9.png)
-
-![Label Studio](img/create-dataset/LabelStudio.png)
+![alt text](img/create-dataset/3-LabelStudio.png)
+![alt text](img/create-dataset/4-LabelStudio.png)
+![alt text](img/create-dataset/5-LabelStudio.png)
+![alt text](img/create-dataset/6-LabelStudio.png)
+![alt text](img/create-dataset/7-LabelStudio.png)
+![alt text](img/create-dataset/8-LabelStudio.png)
+![alt text](img/create-dataset/9-LabelStudio.png)
+![alt text](img/create-dataset/10-LabelStudio.png)
+![alt text](img/create-dataset/11-LabelStudio.png)
+![alt text](img/create-dataset/12-LabelStudio.png)
 
 Once you are happy with the labels, you are ready to train the model.
 
