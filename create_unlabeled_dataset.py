@@ -3,6 +3,7 @@ import time
 from typing import List
 import os
 import glob
+import re
 
 import numpy as np
 import cv2
@@ -10,6 +11,37 @@ import cv2
 from actuator.elevator_motor import ElevatorMotorController
 from actuator.led_neopixel import NeoPixelController
 from sensor.camera import Camera
+
+LABEL_MAP_PATH = "label_map.pbtxt"
+
+
+def parse_label_map(path):
+    """Parse a label_map.pbtxt file and return a ``{name: id}`` dict."""
+    if not os.path.exists(path):
+        return {}
+    text = open(path).read()
+    label_map = {}
+    for block in re.finditer(r'item\s*\{(.*?)\}', text, re.DOTALL):
+        body = block.group(1)
+        id_match = re.search(r'id:\s*(\d+)', body)
+        name_match = re.search(r"name:\s*'([^']+)'", body)
+        if id_match and name_match:
+            label_map[name_match.group(1)] = int(id_match.group(1))
+    return label_map
+
+
+def add_label_to_map(path, label_name):
+    """Add a label to label_map.pbtxt if it doesn't exist yet. Returns the assigned ID."""
+    label_map = parse_label_map(path)
+    if label_name in label_map:
+        print(f"Label '{label_name}' already exists in {path} with id {label_map[label_name]}")
+        return label_map[label_name]
+
+    next_id = max(label_map.values(), default=0) + 1
+    with open(path, "a") as f:
+        f.write(f"\nitem {{\n  id: {next_id}\n  name: '{label_name}'\n}}\n")
+    print(f"Added label '{label_name}' with id {next_id} to {path}")
+    return next_id
 
 
 def run_motor_until_stopped(
@@ -75,13 +107,24 @@ def contains_marble(frame_bayer, crop_size=300, min_area=2000, max_area=100000, 
 
 
 def main() -> None:
-    capture_seconds = 30
-    out_dir = "dataset/out"
-    led_color = (255, 255, 255)
 
-    # create out dir
-    if not os.path.exists(out_dir):
-        os.makedirs(out_dir)
+    # Ask the label name
+    label_name = input("Enter the label name: ").strip().lower()
+    if not label_name:
+        print("Label name cannot be empty.")
+        return
+
+    # Add label to label_map.pbtxt (skips if already present)
+    add_label_to_map(LABEL_MAP_PATH, label_name)
+
+    # Ask how long it should run
+    capture_seconds = int(input("Enter the capture time in seconds: "))
+
+    # Create label folder
+    out_dir = os.path.join("dataset", label_name)
+    os.makedirs(out_dir, exist_ok=True)
+
+    led_color = (255, 255, 255)
 
     leds = NeoPixelController()
     motor = ElevatorMotorController()

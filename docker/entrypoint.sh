@@ -27,6 +27,7 @@ mkdir -p "$RECORDS_DIR" "$CKPT_DIR" "$EXPORT_DIR"
 echo "==> [1/6] Building TFRecords from $DATASET_DIR"
 python3 "$ASSETS/build_tfrecords.py" \
   --dataset-dir "$DATASET_DIR" \
+  --label-map "$ASSETS/label_map.pbtxt" \
   --train-out "$RECORDS_DIR/train.record" \
   --val-out "$RECORDS_DIR/val.record"
 
@@ -60,12 +61,7 @@ echo "==> [6/6] Compiling for Edge TPU"
 edgetpu_compiler -o "$OUT_DIR" "$OUT_DIR/ssd_mobilenet_v2_quant.tflite"
 
 cp "$OUT_DIR/ssd_mobilenet_v2_quant_edgetpu.tflite" "$OUT_DIR/marbel_coral.tflite"
-cat > "$OUT_DIR/labels.txt" <<'EOF'
-1 black
-2 green
-3 orange
-4 red
-EOF
+awk '{gsub(/\r/,"")} /id:/{n=$2} /name:/{gsub(/\047/,"",$2); print n, $2}' "$ASSETS/label_map.pbtxt" > "$OUT_DIR/labels.txt"
 
 echo
 echo "Done. Final artifacts in $OUT_DIR:"

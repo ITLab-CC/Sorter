@@ -12,12 +12,9 @@ Put only **one color** of marbles in the sorter at a time. Aim for at least **20
 sudo .venv-3.10/bin/python create_unlabeled_dataset.py
 ```
 
-This saves images to `dataset/out/`. Rename the folder to the marble color:
-
-```bash
-mv dataset/out dataset/red
-mkdir -p dataset/out
-```
+The script will ask you for:
+1. **Label name** — the marble color (e.g. `red`). The label is automatically added to `label_map.pbtxt` (skipped if it already exists) and the matching `dataset/<name>/` folder is created.
+2. **Capture time** — how many seconds to run the camera.
 
 To lift the elevator motor so you can swap marbles more easily:
 
@@ -45,7 +42,7 @@ dataset/
 
 ## 3.2 Auto-label the images
 
-This script uses OpenCV to detect marbles and generate bounding-box labels automatically. It will not detect the color of the marbles. Instead it will take the folder name as the color label. The results are saved as `dataset-<color>.json` files inside the `dataset/` folder.
+This script uses OpenCV to detect marbles and generate bounding-box labels automatically. It reads the class names from `label_map.pbtxt` and processes only `dataset/` subfolders that match those names. The results are saved as `dataset-<color>.json` files inside the `dataset/` folder.
 
 ```bash
 sudo .venv-3.10/bin/python label_dataset.py

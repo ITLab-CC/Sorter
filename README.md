@@ -51,10 +51,47 @@ Follow the guides below in order:
 ├── docs/              # Step-by-step setup guides
 ├── create_unlabeled_dataset.py
 ├── label_dataset.py
+├── label_map.pbtxt    # Single source of truth for class labels
 ├── main.py            # Entry point for the sorter
 ├── Dockerfile.train   # Docker image for training
 └── pipeline.config    # SSD MobileNet V2 training config
 ```
+
+## Label Map (`label_map.pbtxt`)
+
+`label_map.pbtxt` is the **single source of truth** for all class labels used throughout the project. Every script — labeling, TFRecord generation, training, and inference — reads its labels from this file. Never hardcode label names or IDs elsewhere.
+
+The file uses the [TensorFlow Object Detection API label map format](https://github.com/tensorflow/models/blob/master/research/object_detection/data/kitti_label_map.pbtxt). Each class gets an `item` block with a unique `id` (starting at 1) and a `name`:
+
+```protobuf
+item {
+  id: 1
+  name: 'black'
+}
+
+item {
+  id: 2
+  name: 'green'
+}
+
+item {
+  id: 3
+  name: 'orange'
+}
+
+item {
+  id: 4
+  name: 'red'
+}
+
+```
+
+To add or change marble colors:
+
+1. Edit `label_map.pbtxt` — add, remove, or rename entries.
+2. Make sure a matching `dataset/<name>/` folder with images exists for each label (see [Step 3](docs/03-create-dataset.md)).
+3. Update `num_classes` in `pipeline.config` to match the number of items in `label_map.pbtxt`.
+4. Re-run the labeling and training pipeline as usual — all scripts pick up the changes automatically.
 
 ## Sources
 

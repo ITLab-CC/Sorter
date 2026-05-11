@@ -1,12 +1,28 @@
+import re
 import tensorflow as tf
 import numpy as np
 from pathlib import Path
 from PIL import Image
 import os
 
-# Finales Mapping
-LABELS = {0: "black", 1: "green", 2: "orange", 3: "red"}
+LABEL_MAP_PATH = "label_map.pbtxt"
 THRESHOLD = 0.4 # Etwas niedrigerer Threshold für unbekannte Bilder
+
+
+def parse_label_map(path):
+    """Parse a label_map.pbtxt file and return a ``{id: name}`` dict (0-indexed for TFLite)."""
+    text = open(path).read()
+    label_map = {}
+    for block in re.finditer(r'item\s*\{(.*?)\}', text, re.DOTALL):
+        body = block.group(1)
+        id_match = re.search(r'id:\s*(\d+)', body)
+        name_match = re.search(r"name:\s*'([^']+)'", body)
+        if id_match and name_match:
+            label_map[int(id_match.group(1)) - 1] = name_match.group(1)
+    return label_map
+
+
+LABELS = parse_label_map(LABEL_MAP_PATH)
 
 interpreter = tf.lite.Interpreter(
     model_path="/workspaces/zip_ai/models/ssd_mobilenet_v2_quant.tflite"

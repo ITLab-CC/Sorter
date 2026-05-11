@@ -1,26 +1,29 @@
 import os
 import json
 import random
+import re
 import tensorflow as tf #v2.11
 from PIL import Image
 import io
 
 # Konfiguration
 DATASET_DIR = 'dataset'
-JSON_FILES = [
-    'dataset-black.json',
-    'dataset-green.json',
-    'dataset-orange.json',
-    'dataset-red.json'
-]
+LABEL_MAP_PATH = 'label_map.pbtxt'
 OUTPUT_TRAIN = 'dataset/train.record'
 OUTPUT_VAL = 'dataset/val.record'
-LABEL_MAP = {
-    'black': 1,
-    'green': 2,
-    'orange': 3,
-    'red': 4
-}
+
+
+def parse_label_map(path):
+    """Parse a label_map.pbtxt file and return a ``{name: id}`` dict."""
+    text = open(path).read()
+    label_map = {}
+    for block in re.finditer(r'item\s*\{(.*?)\}', text, re.DOTALL):
+        body = block.group(1)
+        id_match = re.search(r'id:\s*(\d+)', body)
+        name_match = re.search(r"name:\s*'([^']+)'", body)
+        if id_match and name_match:
+            label_map[name_match.group(1)] = int(id_match.group(1))
+    return label_map
 
 def create_tf_example(data_item, label_map):
     # Pfad zum Bild auflösen (URL zu lokalem Pfad)
@@ -94,9 +97,18 @@ def create_tf_example(data_item, label_map):
     return tf_example
 
 def main():
+    label_map = parse_label_map(LABEL_MAP_PATH)
+    if not label_map:
+        raise SystemExit(f"No labels found in {LABEL_MAP_PATH}")
+    json_files = [f'dataset-{name}.json' for name in sorted(label_map.keys())]
+
     all_items = []
-    for json_file in JSON_FILES:
-        with open(os.path.join(DATASET_DIR, json_file), 'r') as f:
+    for json_file in json_files:
+        path = os.path.join(DATASET_DIR, json_file)
+        if not os.path.exists(path):
+            print(f"Warning: {path} not found, skipping.")
+            continue
+        with open(path, 'r') as f:
             all_items.extend(json.load(f))
     
     random.shuffle(all_items)
@@ -110,7 +122,7 @@ def main():
         writer = tf.io.TFRecordWriter(output_file)
         count = 0
         for item in items:
-            example = create_tf_example(item, LABEL_MAP)
+            example = create_tf_example(item, label_map)
             if example:
                 writer.write(example.SerializeToString())
                 count += 1

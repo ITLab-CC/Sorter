@@ -32,6 +32,7 @@ dataset/*
 .venv*/*
 .mypy_cache
 .mypy_cache/*
+label_map.pbtxt
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

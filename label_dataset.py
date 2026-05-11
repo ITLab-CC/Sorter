@@ -10,11 +10,13 @@ For each color subfolder under ``dataset/`` this script:
 import json
 import os
 import datetime
+import re
 
 import cv2
 import numpy as np
 
 DATASET_ROOT = "dataset"
+LABEL_MAP_PATH = "label_map.pbtxt"
 SKIP_FOLDERS = {"mixed-not-labeled", "out"}
 CROP_SIZE_X = 300
 CROP_SIZE_Y = 540
@@ -23,6 +25,19 @@ MAX_AREA = 100000
 THRESH_VAL = 100
 
 IMAGE_URL_TEMPLATE = "http://127.0.0.1:1000/{folder}/{filename}"
+
+
+def parse_label_map(path):
+    """Parse a label_map.pbtxt file and return a ``{name: id}`` dict."""
+    text = open(path).read()
+    label_map = {}
+    for block in re.finditer(r'item\s*\{(.*?)\}', text, re.DOTALL):
+        body = block.group(1)
+        id_match = re.search(r'id:\s*(\d+)', body)
+        name_match = re.search(r"name:\s*'([^']+)'", body)
+        if id_match and name_match:
+            label_map[name_match.group(1)] = int(id_match.group(1))
+    return label_map
 
 
 def classify_color(bgr_roi, mask=None):
@@ -201,14 +216,19 @@ def process_folder(folder_path, label):
 
 
 def main():
-    subfolders = sorted(
-        name for name in os.listdir(DATASET_ROOT)
-        if os.path.isdir(os.path.join(DATASET_ROOT, name))
-        and name not in SKIP_FOLDERS
-    )
+    label_map = parse_label_map(LABEL_MAP_PATH)
+    if not label_map:
+        raise SystemExit(f"No labels found in {LABEL_MAP_PATH}. "
+                         "Create a label_map.pbtxt first (see README).")
 
-    for name in subfolders:
-        process_folder(os.path.join(DATASET_ROOT, name), label=name)
+    print(f"Labels from {LABEL_MAP_PATH}: {list(label_map.keys())}")
+
+    for name in sorted(label_map.keys()):
+        folder = os.path.join(DATASET_ROOT, name)
+        if not os.path.isdir(folder):
+            print(f"Skipping label '{name}': folder {folder} not found")
+            continue
+        process_folder(folder, label=name)
 
 
 if __name__ == "__main__":

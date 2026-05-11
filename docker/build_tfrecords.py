@@ -11,24 +11,24 @@ import io
 import json
 import os
 import random
+import re
 import sys
 
 import tensorflow as tf
 from PIL import Image
 
-LABEL_MAP = {
-    "black": 1,
-    "green": 2,
-    "orange": 3,
-    "red": 4,
-}
 
-JSON_FILES = [
-    "dataset-black.json",
-    "dataset-green.json",
-    "dataset-orange.json",
-    "dataset-red.json",
-]
+def parse_label_map(path):
+    """Parse a label_map.pbtxt file and return a ``{name: id}`` dict."""
+    text = open(path).read()
+    label_map = {}
+    for block in re.finditer(r'item\s*\{(.*?)\}', text, re.DOTALL):
+        body = block.group(1)
+        id_match = re.search(r'id:\s*(\d+)', body)
+        name_match = re.search(r"name:\s*'([^']+)'", body)
+        if id_match and name_match:
+            label_map[name_match.group(1)] = int(id_match.group(1))
+    return label_map
 
 
 def create_tf_example(data_item, dataset_dir, label_map):
@@ -90,6 +90,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset-dir", required=True,
                         help="Directory containing dataset-*.json and the per-color image folders.")
+    parser.add_argument("--label-map", required=True,
+                        help="Path to label_map.pbtxt.")
     parser.add_argument("--train-out", required=True, help="Path of train.record to write.")
     parser.add_argument("--val-out", required=True, help="Path of val.record to write.")
     parser.add_argument("--val-split", type=float, default=0.1,
@@ -97,10 +99,17 @@ def main():
     parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
 
+    label_map = parse_label_map(args.label_map)
+    if not label_map:
+        sys.exit(f"No labels found in {args.label_map}")
+    print(f"Labels from {args.label_map}: {label_map}")
+
+    json_files = [f"dataset-{name}.json" for name in sorted(label_map.keys())]
+
     random.seed(args.seed)
 
     all_items = []
-    for json_file in JSON_FILES:
+    for json_file in json_files:
         path = os.path.join(args.dataset_dir, json_file)
         if not os.path.exists(path):
             print(f"Warning: {path} not found, skipping.", file=sys.stderr)
@@ -110,7 +119,7 @@ def main():
 
     if not all_items:
         sys.exit(f"No items found in {args.dataset_dir}. "
-                 f"Expected one or more of: {JSON_FILES}")
+                 f"Expected one or more of: {json_files}")
 
     random.shuffle(all_items)
     split = int((1.0 - args.val_split) * len(all_items))
@@ -122,7 +131,7 @@ def main():
         writer = tf.io.TFRecordWriter(output_file)
         count = 0
         for item in items:
-            example = create_tf_example(item, args.dataset_dir, LABEL_MAP)
+            example = create_tf_example(item, args.dataset_dir, label_map)
             if example is not None:
                 writer.write(example.SerializeToString())
                 count += 1

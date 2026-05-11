@@ -8,6 +8,7 @@ Output format per image:
 """
 
 import os
+import re
 import sys
 import time
 from pathlib import Path
@@ -17,20 +18,31 @@ from pycoral.adapters import common, detect
 from pycoral.utils.edgetpu import make_interpreter
 
 MODEL_PATH = "my-models/marbel_coral.tflite"
+LABEL_MAP_PATH = "label_map.pbtxt"
 IMAGE_DIR = "dataset/mixed-not-labeled"
 THRESHOLD = 0.4
 
-LABELS = {
-    0: "black",
-    1: "green",
-    2: "orange",
-    3: "red",
-}
+
+def parse_label_map(path):
+    """Parse a label_map.pbtxt file and return a ``{id: name}`` dict (0-indexed for TFLite)."""
+    text = open(path).read()
+    label_map = {}
+    for block in re.finditer(r'item\s*\{(.*?)\}', text, re.DOTALL):
+        body = block.group(1)
+        id_match = re.search(r'id:\s*(\d+)', body)
+        name_match = re.search(r"name:\s*'([^']+)'", body)
+        if id_match and name_match:
+            label_map[int(id_match.group(1)) - 1] = name_match.group(1)
+    return label_map
 
 
 def main():
     if not os.path.exists(MODEL_PATH):
         sys.exit(f"Modell nicht gefunden: {MODEL_PATH}")
+
+    labels = parse_label_map(LABEL_MAP_PATH)
+    if not labels:
+        sys.exit(f"No labels found in {LABEL_MAP_PATH}")
 
     image_dir = Path(IMAGE_DIR)
     if not image_dir.is_dir():
@@ -75,7 +87,7 @@ def main():
 
         if objs:
             best = max(objs, key=lambda o: o.score)
-            label = LABELS.get(best.id, f"unknown_{best.id}")
+            label = labels.get(best.id, f"unknown_{best.id}")
             pct = best.score * 100
             print(f"{img_path.name}: {pct:.1f}% - {label}  ({elapsed_ms:.2f} ms)")
         else:
