@@ -21,6 +21,24 @@ class Camera:
         self.camera.Init()
         self.camera.AcquisitionMode.SetValue(PySpin.AcquisitionMode_Continuous)
 
+    def flush_image_queue(self, timeout_ms: int = 1, max_images: int = 256) -> int:
+        """Discard all currently buffered images from the active acquisition stream."""
+        if not self.camera:
+            return 0
+
+        flushed_count = 0
+
+        while flushed_count < max_images:
+            try:
+                image_result = self.camera.GetNextImage(timeout_ms)
+            except PySpin.SpinnakerException:
+                break
+
+            image_result.Release()
+            flushed_count += 1
+
+        return flushed_count
+
     def stream_for_duration(self, duration_sec: int):
         """Yields raw frames sequentially as fast as possible for a set duration."""
         if not self.camera:
@@ -28,24 +46,35 @@ class Camera:
             return
 
         try:
+            # Only keep the most recent frame; the SDK drops older buffered
+            # images automatically. This prevents processing stale frames of a
+            # marble that has already been classified.
+            s_node_map = self.camera.GetTLStreamNodeMap()
+            handling_mode = PySpin.CEnumerationPtr(
+                s_node_map.GetNode("StreamBufferHandlingMode")
+            )
+            if PySpin.IsAvailable(handling_mode) and PySpin.IsWritable(handling_mode):
+                newest_only = handling_mode.GetEntryByName("NewestOnly")
+                handling_mode.SetIntValue(newest_only.GetValue())
+
             self.camera.BeginAcquisition()
-            
+
             start_time = time.perf_counter()
             end_time = start_time + duration_sec
-            
+
             while time.perf_counter() < end_time:
                 try:
                     # Grab image
                     image_result = self.camera.GetNextImage(1000)
 
                     if not image_result.IsIncomplete():
-                        # Yield the reference directly to save memory. 
+                        # Yield the reference directly to save memory.
                         # The caller MUST process it or copy it before the loop continues.
                         yield image_result.GetNDArray()
-                        
+
                     # Release the buffer immediately so the camera can capture the next frame
                     image_result.Release()
-                    
+
                 except PySpin.SpinnakerException as ex:
                     print(f"Spinnaker Exception during capture: {ex}")
                     break
@@ -60,7 +89,7 @@ class Camera:
         """Releases the camera resources."""
         if self.camera:
             self.camera.DeInit()
-            del self.camera 
+            del self.camera
             self.camera = None
 
         self.cam_list.Clear()
@@ -120,7 +149,7 @@ if __name__ == "__main__":
     cam.print_camera_info()
     cam.unlock_max_framerate()
 
-    test_duration = 5 
+    test_duration = 5
 
     print(f"Starting {test_duration}-second capture stress test...")
     process = psutil.Process(os.getpid())
@@ -128,11 +157,11 @@ if __name__ == "__main__":
 
     start_time = time.perf_counter()
     video_frames = []
-    
+
     # Updated to consume the generator
     for frame in cam.stream_for_duration(test_duration):
         video_frames.append(frame.copy())
-        
+
     actual_duration = time.perf_counter() - start_time
     mem_after = process.memory_info().rss / (1024 * 1024)
 

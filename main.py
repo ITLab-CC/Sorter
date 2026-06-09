@@ -96,37 +96,52 @@ def load_labels():
     return labels
 
 
-def detect_marble_present(frame_bgr):
-    """Check whether a marble is visible in the center of *frame_bgr*.
-
-    Uses the same center-crop + threshold + contour approach as
-    ``label_dataset.process_image``.
-
-    Returns the center-cropped BGR region when a marble is found,
-    or ``None`` otherwise.
+def detect_marble_present(frame_bayer, crop_size=300, min_area=2000, max_area=100000, thresh_val=100):
     """
-    height, width = frame_bgr.shape[:2]
+    Detects if a marble is present in the center of the given image.
 
-    start_x = max(0, width // 2 - CROP_SIZE_X // 2)
-    start_y = max(0, height // 2 - CROP_SIZE_Y // 2)
-    center_crop = frame_bgr[
-        start_y : start_y + CROP_SIZE_Y,
-        start_x : start_x + CROP_SIZE_X,
-    ]
+    Args:
+        frame_bayer (np.ndarray): The input bayer image.
+        crop_size (int): Size of the center square crop.
+        min_area (int): Minimum contour area to be considered a marble.
+        max_area (int): Maximum contour area to be considered a marble.
+        thresh_val (int): Threshold value for binarization.
 
-    frame_gray = cv2.cvtColor(center_crop, cv2.COLOR_BGR2GRAY)
+    Returns:
+        bool: True if a marble is detected, False otherwise.
+    """
+    # 1. Check Image
+    if frame_bayer is None:
+        print("Warning: Could not load image")
+        return False
+
+    height, width = frame_bayer.shape[:2]
+
+    # 2. Fast Cropping
+    start_x = max(0, width // 2 - crop_size // 2)
+    start_y = max(0, height // 2 - crop_size // 2)
+
+    # Slice the numpy array
+    center_crop = frame_bayer[start_y:start_y+crop_size, start_x:start_x+crop_size]
+
+    # 3. Optimized Processing (Grayscale -> Blur -> Threshold -> Invert)
+    frame_gray = cv2.cvtColor(center_crop, cv2.COLOR_BAYER_RG2GRAY)
     blurred = cv2.GaussianBlur(frame_gray, (5, 5), 0)
-    _, thresh = cv2.threshold(blurred, THRESH_VAL, 255, cv2.THRESH_BINARY)
+
+    _, thresh = cv2.threshold(blurred, thresh_val, 255, cv2.THRESH_BINARY)
     inv_thresh = cv2.bitwise_not(thresh)
 
-    contours, _ = cv2.findContours(
-        inv_thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
-    )
-    valid = [c for c in contours if MIN_AREA <= cv2.contourArea(c) <= MAX_AREA]
+    # 4. Contour Detection
+    contours, _ = cv2.findContours(inv_thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-    if not valid:
-        return None
-    return center_crop
+    # 5. Validation
+    # If any contour matches the area criteria, a marble is present
+    for c in contours:
+        area = cv2.contourArea(c)
+        if min_area <= area <= max_area:
+            return True
+
+    return False
 
 
 def run_elevator(motor, stop_event):
@@ -217,16 +232,21 @@ def main():
             frame_bgr = cv2.cvtColor(raw_frame, cv2.COLOR_BAYER_RG2BGR)
 
             # Fast check: is there a marble in the frame?
-            crop = detect_marble_present(frame_bgr)
-            if crop is None:
+            is_marbel = detect_marble_present(raw_frame)
+            if is_marbel is False:
                 continue
 
+            print("OPENCV erkannt")
+            start_time = time.perf_counter()
+
             # Classify the detected marble with the Coral TPU
-            pil_img = Image.fromarray(cv2.cvtColor(crop, cv2.COLOR_BGR2RGB))
+            pil_img = Image.fromarray(cv2.cvtColor(raw_frame, cv2.COLOR_BAYER_RG2BGR))
             pil_img = pil_img.resize(input_size, Image.LANCZOS)
             common.set_input(interpreter, pil_img)
             interpreter.invoke()
             objs = detect.get_objects(interpreter, DETECTION_THRESHOLD)
+
+            inference_time = time.perf_counter() - start_time
 
             if not objs:
                 continue
@@ -241,17 +261,19 @@ def main():
             if label == "green":
                 solenoid.turn_on()
                 sort_stats["green"] += 1
-                print(f"  Frame {frame_count}: {label} ({confidence:.1f}%) -> LEFT")
+                print(f"  Frame {frame_count}: {label} ({confidence:.1f}%) -> LEFT ({inference_time*1000:.2f}ms)")
             elif label == "red":
                 solenoid.turn_off()
                 sort_stats["red"] += 1
-                print(f"  Frame {frame_count}: {label} ({confidence:.1f}%) -> RIGHT")
+                print(f"  Frame {frame_count}: {label} ({confidence:.1f}%) -> RIGHT ({inference_time*1000:.2f}ms)")
             else:
                 sort_stats["other"] += 1
-                print(f"  Frame {frame_count}: {label} ({confidence:.1f}%) -> SKIP")
+                print(f"  Frame {frame_count}: {label} ({confidence:.1f}%) -> SKIP ({inference_time*1000:.2f}ms)")
 
             # Cooldown so we don't re-classify the same marble
             time.sleep(COOLDOWN_SECONDS)
+
+            cam.flush_image_queue()
 
     except KeyboardInterrupt:
         print("\nSorting interrupted by user.")
