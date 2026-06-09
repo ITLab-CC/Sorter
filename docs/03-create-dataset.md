@@ -100,11 +100,12 @@ sudo python3 http-server.py
 
 ### Import and review
 
+![alt text](img/create-dataset/1-LabelStudio.png)
+
 1. Click **Import** in Label Studio.
 2. Upload the `dataset-<color>.json` files from the `dataset/` folder.
 3. Review each image and correct any wrong bounding boxes.
 
-![alt text](img/create-dataset/1-LabelStudio.png)
 ![alt text](img/create-dataset/2-LabelStudio.png)
 ![alt text](img/create-dataset/3-LabelStudio.png)
 ![alt text](img/create-dataset/4-LabelStudio.png)

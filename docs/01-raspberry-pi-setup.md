@@ -94,8 +94,8 @@ Download both the SDK and the Python bindings from the [Spinnaker SDK download p
 
 You need these two files (ARM64):
 
-- `spinnaker-4.3.0.189-Ubuntu22.04-arm64-pkg.tar.gz`
-- `spinnaker_python-4.3.0.189-cp310-cp310-linux_aarch64.tar.gz`
+- `spinnaker-4.3.0.189-Ubuntu22.04-arm64-pkg.tar.gz` (Linux Ubuntu 22.04 --ARM64)
+- `spinnaker_python-4.3.0.189-cp310-cp310-linux_aarch64.tar.gz` (Linux Ubuntu 22.04 -- ARM64 Python 3.10)
 
 ### Extract and install the SDK
 
