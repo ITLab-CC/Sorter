@@ -1,0 +1,10 @@
+*.jpg
+*.png
+spinnaker_sdk
+spinnaker_sdk/*
+spinnaker_python
+spinnaker_python/*
+out
+out/*
+.venv*
+__pycache__/

@@ -1,0 +1,5 @@
+mypy
+RPi.GPIO
+Adafruit-Blinka
+adafruit-circuitpython-neopixel
+gpiozero

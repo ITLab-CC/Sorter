@@ -1,0 +1,7 @@
+*.jpg
+*.png
+spinnaker_sdk
+spinnaker_sdk/*
+spinnaker_python
+spinnaker_python/*
+*.tar.gz

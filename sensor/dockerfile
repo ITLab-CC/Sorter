@@ -1,0 +1,136 @@
+# Use Ubuntu 22.04 as the base image
+FROM ubuntu:22.04
+
+# Expose the architecture argument provided by Docker
+ARG TARGETARCH
+
+# Prevent interactive prompts from apt
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install prerequisite system packages
+RUN apt-get update && apt-get install -y \
+    python3.10 \
+    python3.10-venv \
+    python3.10-dev \
+    python3-pip \
+    sudo \
+    udev \
+    ethtool \
+    libusb-1.0-0 \
+    libswscale5 \
+    libavcodec58 \
+    libavformat58 \
+    iproute2 \
+    iputils-ping \
+    net-tools \
+    build-essential \
+    libssl-dev \
+    zlib1g-dev \
+    libbz2-dev \
+    libreadline-dev \
+    libsqlite3-dev \
+    curl \
+    git \
+    libncursesw5-dev \
+    xz-utils \
+    tk-dev \
+    libxml2-dev \
+    libxmlsec1-dev \
+    libffi-dev \
+    liblzma-dev \
+    libgl1 \
+    libglib2.0-0 \
+    ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+
+# --- DOCKER WORKAROUNDS FOR HARDWARE SDKS ---
+
+# 1. logname: Spinnaker post-install scripts use this to find the home directory.
+RUN echo '#!/bin/sh\necho root' > /usr/bin/logname && chmod +x /usr/bin/logname
+
+# 2. udevadm & systemctl: Docker doesn't run udevd or systemd. 
+RUN dpkg-divert --local --rename --add /sbin/udevadm && ln -s /bin/true /sbin/udevadm
+RUN dpkg-divert --local --rename --add /bin/udevadm && ln -s /bin/true /bin/udevadm
+RUN dpkg-divert --local --rename --add /bin/systemctl && ln -s /bin/true /bin/systemctl
+
+# --------------------------------------------
+
+# Set up a temporary working directory for the installation
+WORKDIR /tmp/spinnaker_install
+
+# Copy ALL tarballs using wildcards. 
+# Wildcards prevent Docker from failing if you only have one architecture's files downloaded.
+COPY spinnaker-4.3.0.189-Ubuntu22.04-*-pkg.tar.gz ./
+COPY spinnaker_python-4.3.0.189-cp310-cp310-linux_*.tar.gz ./
+
+# Detect architecture, map to Spinnaker's naming conventions, and extract the correct files
+RUN if [ "$TARGETARCH" = "amd64" ]; then \
+        SDK_ARCH="amd64"; \
+        PY_ARCH="x86_64"; \
+    elif [ "$TARGETARCH" = "arm64" ]; then \
+        SDK_ARCH="arm64"; \
+        PY_ARCH="aarch64"; \
+    else \
+        echo "Unsupported architecture: $TARGETARCH"; \
+        exit 1; \
+    fi && \
+    echo "Building for architecture: $TARGETARCH (SDK: $SDK_ARCH, Python: $PY_ARCH)" && \
+    mkdir spinnaker_sdk spinnaker_python && \
+    tar -xzvf spinnaker-4.3.0.189-Ubuntu22.04-${SDK_ARCH}-pkg.tar.gz -C spinnaker_sdk --strip-components=1 && \
+    tar -xzvf spinnaker_python-4.3.0.189-cp310-cp310-linux_${PY_ARCH}.tar.gz -C spinnaker_python && \
+    # Clean up the original tarballs immediately so they don't permanently bloat the Docker image layer
+    rm -f *.tar.gz
+
+WORKDIR /tmp/spinnaker_install/spinnaker_sdk
+
+# 3. The FLIR EULA Exit 30 Fix
+RUN for deb in ./*.deb; do \
+        echo "Patching $deb..." && \
+        dpkg-deb -R "$deb" tmp_dir && \
+        if [ -f tmp_dir/DEBIAN/preinst ]; then \
+            echo '#!/bin/sh' > tmp_dir/DEBIAN/preinst && \
+            echo 'exit 0' >> tmp_dir/DEBIAN/preinst && \
+            chmod +x tmp_dir/DEBIAN/preinst; \
+        fi && \
+        dpkg-deb -b tmp_dir "$deb" && \
+        rm -rf tmp_dir; \
+    done
+
+# Install the patched Spinnaker C/C++ SDK packages. 
+RUN apt-get update && apt-get install -y ./*.deb && rm -rf /var/lib/apt/lists/*
+
+# Run the post-installation configuration scripts.
+RUN sh configure_spinnaker_paths.sh && \
+    sh configure_gentl_paths.sh 64
+
+# --- PYTHON APPLICATION SETUP ---
+
+# Set a clean working directory for your application code
+WORKDIR /app
+
+# Create and activate the Python 3.10 virtual environment
+ENV VIRTUAL_ENV=/app/.venv-3.10
+RUN python3.10 -m venv $VIRTUAL_ENV
+ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+
+# Install the Spinnaker Python SDK Wheel inside the venv
+WORKDIR /tmp/spinnaker_install/spinnaker_python
+RUN pip install --no-cache-dir spinnaker_python*.whl
+
+# Clean up the temporary installation files to keep the image size small
+WORKDIR /
+RUN rm -rf /tmp/spinnaker_install
+
+# Copy requirements file and install Python dependencies
+WORKDIR /app
+COPY requirements-3.10.txt .
+RUN pip install --no-cache-dir -r requirements-3.10.txt
+
+# Restore the GenTL path required by the Python SDK
+ENV SPINNAKER_GENTL64_CTI=/opt/spinnaker/lib/spinnaker-gentl/Spinnaker_GenTL.cti
+
+# Copy the rest of the application code
+COPY . .
+
+# Default command
+CMD ["python3.10", "camera.py"]
