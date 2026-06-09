@@ -231,7 +231,7 @@ def main():
             frame_count += 1
 
             # Convert raw Bayer to BGR
-            frame_bgr = cv2.cvtColor(raw_frame, cv2.COLOR_BAYER_RG2BGR)
+            frame_bgr = cv2.cvtColor(raw_frame, cv2.COLOR_BAYER_BG2BGR) #cv2.COLOR_BAYER_BG2BGR
 
             # Fast check: is there a marble in the frame?
             is_marbel = detect_marble_present(raw_frame)
