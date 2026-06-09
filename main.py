@@ -30,6 +30,7 @@ from actuator.elevator_motor import ElevatorMotorController
 from actuator.led_neopixel import NeoPixelController
 from actuator.switch_solenoid_motor import SolenoidController
 from sensor.camera import Camera
+from display import MarbleDisplay
 
 # ---------------------------------------------------------------------------
 # Paths
@@ -192,6 +193,7 @@ def main():
     leds = NeoPixelController()
     solenoid = SolenoidController()
     cam = Camera()
+    display = MarbleDisplay()
 
     if cam.camera is None:
         sys.exit("No camera detected. Exiting.")
@@ -258,6 +260,9 @@ def main():
 
             # Solenoid ON  → deflect to GREEN side (left)
             # Solenoid OFF → marble falls to RED side (right, default)
+            display.update_detection(frame_bgr, label, confidence)
+            marble_shown = True
+
             if label == "green":
                 solenoid.turn_on()
                 sort_stats["green"] += 1
@@ -284,6 +289,7 @@ def main():
         # --------------------------------------------------------------
         print("\nShutting down...")
 
+        display.close()
         stop_elevator.set()
         elevator_thread.join(timeout=5)
         elevator.cleanup()
