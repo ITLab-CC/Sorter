@@ -318,8 +318,9 @@ def main():
                     sort_stats["red"] += 1
                     print(f"  Frame {frame_count}: {label} ({confidence:.1f}%) -> RIGHT ({inference_time*1000:.2f}ms)")
                 else:
+                    solenoid.turn_off()
                     sort_stats["other"] += 1
-                    print(f"  Frame {frame_count}: {label} ({confidence:.1f}%) -> SKIP ({inference_time*1000:.2f}ms)")
+                    print(f"  Frame {frame_count}: {label} ({confidence:.1f}%) -> RIGHT ({inference_time*1000:.2f}ms)")
 
                 # Cooldown so we don't re-classify the same marble
                 time.sleep(COOLDOWN_SECONDS)
