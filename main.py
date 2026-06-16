@@ -149,15 +149,26 @@ def detect_marble_present(frame_bayer, crop_size=300, min_area=2000, max_area=10
 def run_elevator(motor, running_event, quit_event):
     """Rotate the elevator motor while *running_event* is set.
 
-    Runs until *quit_event* is set (full program shutdown). While the sorter
-    is stopped (running_event cleared) the motor idles instead of spinning.
+    Runs until *quit_event* is set (full program shutdown). The driver is only
+    energised while the sorter is actually running; when stopped it is disabled
+    so the motor has no holding current (no constant tension/heat) and cannot
+    twitch from electrical noise.
     """
-    motor.enable()
-    while not quit_event.is_set():
-        if running_event.is_set():
-            motor.rotate(steps=ELEVATOR_STEPS, pause_seconds=ELEVATOR_PAUSE)
-        else:
-            time.sleep(0.05)
+    enabled = False
+    try:
+        while not quit_event.is_set():
+            if running_event.is_set():
+                if not enabled:
+                    motor.enable()
+                    enabled = True
+                motor.rotate(steps=ELEVATOR_STEPS, pause_seconds=ELEVATOR_PAUSE)
+            else:
+                if enabled:
+                    motor.disable()
+                    enabled = False
+                time.sleep(0.05)
+    finally:
+        motor.disable()
 
 
 # ═══════════════════════════════════════════════════════════════════════════

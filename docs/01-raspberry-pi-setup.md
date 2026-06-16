@@ -122,6 +122,40 @@ cd ../..
 rm -rf sensor/spinnaker_python sensor/spinnaker_sdk
 ```
 
+## 1.6 Set a safe GPIO state for the elevator stepper
+
+At power-on the GPIO pins float until a program drives them. For the elevator
+stepper driver this means the `ENABLE` pin can drift and energise the driver,
+while the floating `STEP` pin picks up electrical noise — causing the motor to
+hum or twitch/rotate on its own **even when no program is running**.
+
+To hold the driver in a safe, defined state from boot, append the following
+lines to the bottom of `/boot/firmware/config.txt` (older Raspberry Pi OS:
+`/boot/config.txt`):
+
+```bash
+sudo tee -a /boot/firmware/config.txt > /dev/null <<'EOF'
+
+# Elevator stepper driver: hold pins in a safe state from power-on so the
+# motor does not twitch/rotate while no program is running.
+# 17=ENABLE (active-low -> drive HIGH = disabled), 22=STEP, 27=DIR.
+gpio=17=op,dh
+gpio=22=op,dl
+gpio=27=op,dl
+EOF
+```
+
+Then reboot for the settings to take effect:
+
+```bash
+sudo reboot
+```
+
+> **Note:** `17` is the `ENABLE` pin. This assumes an active-low driver
+> (A4988/DRV8825), so it is driven HIGH (`dh`) to keep the driver disabled.
+> If your driver enables on HIGH instead, change `gpio=17=op,dh` to
+> `gpio=17=op,dl`.
+
 ---
 
 **Previous:** [Step 0 — Build the Sorter](00-build-the-sorter.md)

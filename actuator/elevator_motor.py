@@ -13,9 +13,13 @@ class ElevatorMotorController:
         GPIO.setmode(GPIO.BCM)
         GPIO.setwarnings(False)
 
-        GPIO.setup(self.enable_pin, GPIO.OUT)
-        GPIO.setup(self.dir_pin, GPIO.OUT)
-        GPIO.setup(self.step_pin, GPIO.OUT)
+        # Drive the pins to a safe, defined state immediately. Without an
+        # explicit initial value RPi.GPIO leaves outputs LOW, which would pull
+        # ENABLE LOW and energise the driver (holding current) the moment this
+        # object is created. ENABLE is active-low, so start HIGH (= disabled).
+        GPIO.setup(self.enable_pin, GPIO.OUT, initial=GPIO.HIGH)
+        GPIO.setup(self.dir_pin, GPIO.OUT, initial=GPIO.LOW)
+        GPIO.setup(self.step_pin, GPIO.OUT, initial=GPIO.LOW)
 
     def enable(self) -> None:
         """Enables the motor by setting the ENABLE pin to LOW."""
@@ -36,9 +40,16 @@ class ElevatorMotorController:
             time.sleep(pause_seconds)
 
     def cleanup(self) -> None:
-        """Disables the motor and safely releases the GPIO pins."""
+        """Leave the driver in a safe, defined state on shutdown.
+
+        We deliberately do NOT call ``GPIO.cleanup()`` here: that resets the
+        pins to floating inputs, which lets the ENABLE pin drift and the STEP
+        pin pick up noise once the program exits, causing the motor to twitch.
+        Instead we keep the pins driven: ENABLE HIGH (disabled), STEP/DIR LOW.
+        """
         self.disable()
-        GPIO.cleanup([self.step_pin, self.dir_pin])
+        GPIO.output(self.step_pin, GPIO.LOW)
+        GPIO.output(self.dir_pin, GPIO.LOW)
 
 
 if __name__ == '__main__':
