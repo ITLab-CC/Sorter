@@ -39,6 +39,55 @@ class Camera:
 
         return flushed_count
 
+    def stream_while_running(self, should_continue):
+        """Yields raw frames as fast as possible while *should_continue* is True.
+
+        Args:
+            should_continue: A zero-argument callable returning ``True`` while
+                streaming should continue and ``False`` to stop. Checked once
+                per frame.
+        """
+        if not self.camera:
+            print("Camera not initialized.")
+            return
+
+        try:
+            # Only keep the most recent frame; the SDK drops older buffered
+            # images automatically. This prevents processing stale frames of a
+            # marble that has already been classified.
+            s_node_map = self.camera.GetTLStreamNodeMap()
+            handling_mode = PySpin.CEnumerationPtr(
+                s_node_map.GetNode("StreamBufferHandlingMode")
+            )
+            if PySpin.IsAvailable(handling_mode) and PySpin.IsWritable(handling_mode):
+                newest_only = handling_mode.GetEntryByName("NewestOnly")
+                handling_mode.SetIntValue(newest_only.GetValue())
+
+            self.camera.BeginAcquisition()
+
+            while should_continue():
+                try:
+                    # Grab image
+                    image_result = self.camera.GetNextImage(1000)
+
+                    if not image_result.IsIncomplete():
+                        # Yield the reference directly to save memory.
+                        # The caller MUST process it or copy it before the loop continues.
+                        yield image_result.GetNDArray()
+
+                    # Release the buffer immediately so the camera can capture the next frame
+                    image_result.Release()
+
+                except PySpin.SpinnakerException as ex:
+                    print(f"Spinnaker Exception during capture: {ex}")
+                    break
+
+        except Exception as e:
+            print(f"Error capturing sequence: {e}")
+
+        finally:
+            self.camera.EndAcquisition()
+
     def stream_for_duration(self, duration_sec: int):
         """Yields raw frames sequentially as fast as possible for a set duration."""
         if not self.camera:

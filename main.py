@@ -1,14 +1,15 @@
 """Marble Sorter – Main control loop.
 
-Runs the full sorting pipeline for a configurable duration:
+Runs the full sorting pipeline, controlled by START/STOP buttons in the
+on-screen display:
 1. Verify the Coral Edge TPU model file exists.
-2. Start the elevator motor (background thread).
-3. Turn on the LED ring for camera illumination.
-4. Stream camera frames for SORT_DURATION seconds.
-5. For each frame, detect marble presence via OpenCV contours.
-6. If detected, classify with the Coral Edge TPU model.
-7. Trigger the solenoid to sort left/right based on color.
-8. Shut everything down cleanly.
+2. Initialise hardware and show the fullscreen display.
+3. Wait until the user presses START (statistics are cleared on each start).
+4. While running, stream camera frames and detect marble presence via OpenCV.
+5. If detected, classify with the Coral Edge TPU model.
+6. Trigger the solenoid to sort left/right based on color.
+7. Keep running until STOP is pressed, then return to step 3.
+8. Exit cleanly only when the window is closed or on Ctrl+C.
 
 Usage:
     sudo .venv-3.10/bin/python main.py
@@ -145,11 +146,18 @@ def detect_marble_present(frame_bayer, crop_size=300, min_area=2000, max_area=10
     return False
 
 
-def run_elevator(motor, stop_event):
-    """Continuously rotate the elevator motor until *stop_event* is set."""
+def run_elevator(motor, running_event, quit_event):
+    """Rotate the elevator motor while *running_event* is set.
+
+    Runs until *quit_event* is set (full program shutdown). While the sorter
+    is stopped (running_event cleared) the motor idles instead of spinning.
+    """
     motor.enable()
-    while not stop_event.is_set():
-        motor.rotate(steps=ELEVATOR_STEPS, pause_seconds=ELEVATOR_PAUSE)
+    while not quit_event.is_set():
+        if running_event.is_set():
+            motor.rotate(steps=ELEVATOR_STEPS, pause_seconds=ELEVATOR_PAUSE)
+        else:
+            time.sleep(0.05)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -200,85 +208,109 @@ def main():
     cam.print_camera_info()
 
     # ------------------------------------------------------------------
-    # 4. Start elevator (background thread)
+    # 4. Start elevator (background thread).
+    #    It only spins while the user has pressed START (display.running).
     # ------------------------------------------------------------------
-    stop_elevator = threading.Event()
     elevator_thread = threading.Thread(
         target=run_elevator,
-        args=(elevator, stop_elevator),
+        args=(elevator, display.running, display.quit),
         daemon=True,
     )
     elevator_thread.start()
-    print("[OK] Elevator motor running.")
+    print("[OK] Elevator thread ready (idle until START).")
 
     # ------------------------------------------------------------------
-    # 5. Turn on LEDs
+    # 6. Main control loop
+    #    Wait for the user to press START, sort until STOP is pressed, then
+    #    return to waiting. The program only exits when the window is closed
+    #    (display.quit) or on Ctrl+C.
     # ------------------------------------------------------------------
-    leds.set_color((255, 255, 255))
-    print("[OK] LEDs on.")
-
-    # ------------------------------------------------------------------
-    # 6. Sorting loop
-    # ------------------------------------------------------------------
-    frame_count = 0
-    sorted_count = 0
-    sort_stats = {"red": 0, "green": 0, "other": 0}
-
-    print(f"\n--- Sorting for {SORT_DURATION} seconds ---\n")
+    print("\n--- Ready. Press START in the window to begin sorting. ---\n")
 
     try:
-        for raw_frame in cam.stream_for_duration(SORT_DURATION):
-            frame_count += 1
+        while not display.quit.is_set():
+            # Wait (idle) until the user presses START.
+            while not display.running.is_set() and not display.quit.is_set():
+                time.sleep(0.05)
+            if display.quit.is_set():
+                break
 
-            # Convert raw Bayer to BGR
-            frame_bgr = cv2.cvtColor(raw_frame, cv2.COLOR_BAYER_BG2BGR) #cv2.COLOR_BAYER_BG2BGR
+            # New session: clear all statistics and light up.
+            frame_count = 0
+            sorted_count = 0
+            sort_stats = {"red": 0, "green": 0, "other": 0}
+            leds.set_color((255, 255, 255))
+            print("\n--- Sorting started ---\n")
 
-            # Fast check: is there a marble in the frame?
-            is_marbel = detect_marble_present(raw_frame)
-            if is_marbel is False:
-                continue
+            for raw_frame in cam.stream_while_running(
+                lambda: display.running.is_set() and not display.quit.is_set()
+            ):
+                frame_count += 1
 
-            print("OPENCV erkannt")
-            start_time = time.perf_counter()
+                # Convert raw Bayer to BGR
+                frame_bgr = cv2.cvtColor(raw_frame, cv2.COLOR_BAYER_BG2BGR) #cv2.COLOR_BAYER_BG2BGR
 
-            # Classify the detected marble with the Coral TPU
-            pil_img = Image.fromarray(cv2.cvtColor(raw_frame, cv2.COLOR_BAYER_RG2BGR))
-            pil_img = pil_img.resize(input_size, Image.LANCZOS)
-            common.set_input(interpreter, pil_img)
-            interpreter.invoke()
-            objs = detect.get_objects(interpreter, DETECTION_THRESHOLD)
+                # Fast check: is there a marble in the frame?
+                is_marbel = detect_marble_present(raw_frame)
+                if is_marbel is False:
+                    continue
 
-            inference_time = time.perf_counter() - start_time
+                print("OPENCV erkannt")
+                start_time = time.perf_counter()
 
-            if not objs:
-                continue
+                # Classify the detected marble with the Coral TPU
+                pil_img = Image.fromarray(cv2.cvtColor(raw_frame, cv2.COLOR_BAYER_RG2BGR))
+                pil_img = pil_img.resize(input_size, Image.LANCZOS)
+                common.set_input(interpreter, pil_img)
+                interpreter.invoke()
+                objs = detect.get_objects(interpreter, DETECTION_THRESHOLD)
 
-            best = max(objs, key=lambda o: o.score)
-            label = labels.get(best.id, f"unknown_{best.id}")
-            confidence = best.score * 100
-            sorted_count += 1
+                inference_time = time.perf_counter() - start_time
 
-            # Solenoid ON  → deflect to GREEN side (left)
-            # Solenoid OFF → marble falls to RED side (right, default)
-            display.update_detection(frame_bgr, label, confidence)
-            marble_shown = True
+                if not objs:
+                    continue
 
-            if label == "green":
-                solenoid.turn_on()
-                sort_stats["green"] += 1
-                print(f"  Frame {frame_count}: {label} ({confidence:.1f}%) -> LEFT ({inference_time*1000:.2f}ms)")
-            elif label == "red":
-                solenoid.turn_off()
-                sort_stats["red"] += 1
-                print(f"  Frame {frame_count}: {label} ({confidence:.1f}%) -> RIGHT ({inference_time*1000:.2f}ms)")
-            else:
-                sort_stats["other"] += 1
-                print(f"  Frame {frame_count}: {label} ({confidence:.1f}%) -> SKIP ({inference_time*1000:.2f}ms)")
+                best = max(objs, key=lambda o: o.score)
+                label = labels.get(best.id, f"unknown_{best.id}")
+                confidence = best.score * 100
+                sorted_count += 1
 
-            # Cooldown so we don't re-classify the same marble
-            time.sleep(COOLDOWN_SECONDS)
+                # Solenoid ON  → deflect to GREEN side (left)
+                # Solenoid OFF → marble falls to RED side (right, default)
+                display.update_detection(frame_bgr, label, confidence)
 
-            cam.flush_image_queue()
+                if label == "green":
+                    solenoid.turn_on()
+                    sort_stats["green"] += 1
+                    print(f"  Frame {frame_count}: {label} ({confidence:.1f}%) -> LEFT ({inference_time*1000:.2f}ms)")
+                elif label == "red":
+                    solenoid.turn_off()
+                    sort_stats["red"] += 1
+                    print(f"  Frame {frame_count}: {label} ({confidence:.1f}%) -> RIGHT ({inference_time*1000:.2f}ms)")
+                else:
+                    sort_stats["other"] += 1
+                    print(f"  Frame {frame_count}: {label} ({confidence:.1f}%) -> SKIP ({inference_time*1000:.2f}ms)")
+
+                # Cooldown so we don't re-classify the same marble
+                time.sleep(COOLDOWN_SECONDS)
+
+                cam.flush_image_queue()
+
+            # Session stopped (STOP pressed or window closed).
+            solenoid.turn_off()
+            leds.turn_off()
+
+            print(f"\n{'=' * 30}")
+            print("      SORTING RESULTS")
+            print(f"{'=' * 30}")
+            print(f"  Frames processed : {frame_count}")
+            print(f"  Marbles sorted   : {sorted_count}")
+            print(f"  Red   (right)    : {sort_stats['red']}")
+            print(f"  Green (left)     : {sort_stats['green']}")
+            print(f"  Other (skipped)  : {sort_stats['other']}")
+            print(f"{'=' * 30}")
+            if not display.quit.is_set():
+                print("\n--- Sorting stopped. Press START to run again. ---\n")
 
     except KeyboardInterrupt:
         print("\nSorting interrupted by user.")
@@ -289,8 +321,9 @@ def main():
         # --------------------------------------------------------------
         print("\nShutting down...")
 
+        display.running.clear()
+        display.quit.set()
         display.close()
-        stop_elevator.set()
         elevator_thread.join(timeout=5)
         elevator.cleanup()
         print("[OK] Elevator stopped.")
@@ -303,17 +336,6 @@ def main():
 
         cam.release_camera()
         print("[OK] Camera released.")
-
-        # Summary
-        print(f"\n{'=' * 30}")
-        print("      SORTING RESULTS")
-        print(f"{'=' * 30}")
-        print(f"  Frames processed : {frame_count}")
-        print(f"  Marbles sorted   : {sorted_count}")
-        print(f"  Red   (right)    : {sort_stats['red']}")
-        print(f"  Green (left)     : {sort_stats['green']}")
-        print(f"  Other (skipped)  : {sort_stats['other']}")
-        print(f"{'=' * 30}")
 
 
 if __name__ == "__main__":

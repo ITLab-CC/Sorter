@@ -42,6 +42,10 @@ class MarbleDisplay:
         self._pw = preview_width
         self._ph = preview_height
         self._queue: queue.Queue = queue.Queue(maxsize=2)
+        # Set while the user has pressed START and sorting should run.
+        self.running = threading.Event()
+        # Set when the window is closed / the app should exit entirely.
+        self.quit = threading.Event()
         self._thread = threading.Thread(target=self._run, daemon=True)
         self._thread.start()
 
@@ -159,7 +163,7 @@ class MarbleDisplay:
 
         banner = tk.Label(
             panel,
-            text="Waiting\nfor marble…",
+            text="Press\nSTART",
             font=("DejaVu Sans", banner_font, "bold"),
             fg="white",
             bg="black",
@@ -183,6 +187,48 @@ class MarbleDisplay:
 
         _img_ref: list = [None]
         _counts: dict = {"red": 0, "green": 0, "other": 0}
+
+        # ── Start / Stop control ──────────────────────────────────────
+        button_font = max(12, int(panel_w * 0.11))
+
+        def _on_start() -> None:
+            # Clear all statistics before a new sorting session.
+            _counts["red"] = _counts["green"] = _counts["other"] = 0
+            stats_label.config(text="Red: 0\nGreen: 0\nOther: 0")
+            banner.config(text="Sorting…", fg="white")
+            canvas.delete("all")
+            _img_ref[0] = None
+            self.running.set()
+            toggle_btn.config(text="STOP", bg="#AA2222", activebackground="#CC3333",
+                              command=_on_stop)
+
+        def _on_stop() -> None:
+            self.running.clear()
+            banner.config(text="Stopped", fg="white")
+            toggle_btn.config(text="START", bg="#22AA22", activebackground="#33CC33",
+                              command=_on_start)
+
+        toggle_btn = tk.Button(
+            panel,
+            text="START",
+            font=("DejaVu Sans", button_font, "bold"),
+            fg="white",
+            bg="#22AA22",
+            activebackground="#33CC33",
+            activeforeground="white",
+            relief="raised",
+            bd=4,
+            command=_on_start,
+        )
+        toggle_btn.pack(side="top", fill="x", padx=8, pady=12, ipady=10)
+
+        def _on_close() -> None:
+            self.running.clear()
+            self.quit.set()
+            root.destroy()
+
+        root.protocol("WM_DELETE_WINDOW", _on_close)
+        root.bind("<q>", lambda _e: _on_close())
 
         def _make_photo(frame_bgr: np.ndarray, bgr_col: Tuple[int, int, int],
                         bbox: Optional[Tuple[int, int, int, int]]) -> ImageTk.PhotoImage:
