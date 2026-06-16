@@ -139,6 +139,9 @@ class MarbleDisplay:
             root.geometry(f"{screen_w}x{screen_h}+0+0")
             root.lift()
             root.focus_force()
+            # override-redirect windows don't always get an expose event from
+            # the WM, so force a full redraw of all widgets (incl. the button).
+            root.update()
 
         root.after(100, _force_fullscreen)
 
@@ -218,12 +221,16 @@ class MarbleDisplay:
             self.running.set()
             toggle_btn.config(text="STOP", bg="#AA2222", activebackground="#CC3333",
                               command=_on_stop)
+            toggle_btn.lift()
+            root.update_idletasks()
 
         def _on_stop() -> None:
             self.running.clear()
             banner.config(text="Stopped", fg="white")
             toggle_btn.config(text="START", bg="#22AA22", activebackground="#33CC33",
                               command=_on_start)
+            toggle_btn.lift()
+            root.update_idletasks()
 
         toggle_btn = tk.Button(
             panel,
@@ -238,6 +245,7 @@ class MarbleDisplay:
             command=_on_start,
         )
         toggle_btn.pack(side="top", fill="x", padx=8, pady=12, ipady=10)
+        toggle_btn.lift()
 
         def _on_close() -> None:
             self.running.clear()
@@ -294,6 +302,9 @@ class MarbleDisplay:
                 stats_label.config(
                     text=f"Red: {_counts['red']}\nGreen: {_counts['green']}\nOther: {_counts['other']}"
                 )
+
+                # Keep the control button on top of any redraw.
+                toggle_btn.lift()
 
             root.after(50, _poll)
 
