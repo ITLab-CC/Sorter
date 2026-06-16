@@ -121,9 +121,41 @@ class MarbleDisplay:
         # The display can be small (e.g. 800x480 on a Pi DSI panel), so
         # size everything relative to the real screen dimensions instead
         # of using fixed pixel values that overflow the visible area.
-        root.update_idletasks()
-        screen_w = root.winfo_screenwidth()
-        screen_h = root.winfo_screenheight()
+        # Compute the layout from the *current* screen dimensions. Wrapped in
+        # a function so it can be re-run later: on autostart XWayland may
+        # report stale/placeholder screen dimensions until the compositor has
+        # finished mapping the window.
+        def _compute_layout() -> dict:
+            root.update_idletasks()
+            sw = root.winfo_screenwidth()
+            sh = root.winfo_screenheight()
+            # Landscape layout: marble image fills the full height on the left
+            # (kept as large as possible so it stays sharp), and the banner +
+            # counters live in the leftover column on the right. This avoids
+            # shrinking the image to make room for stacked text bars.
+            ph = sh
+            pw = int(ph * 4 / 3)
+            # Keep at least a minimum info column; clamp the image if needed.
+            min_panel_w = 150
+            if pw > sw - min_panel_w:
+                pw = sw - min_panel_w
+                ph = int(pw * 3 / 4)
+            panel_w = max(min_panel_w, sw - pw)
+            return {
+                "sw": sw, "sh": sh, "pw": pw, "ph": ph, "panel_w": panel_w,
+                # Scale fonts to the info-panel width so the text fits without
+                # overflowing the column.
+                "banner_font": max(12, int(panel_w * 0.13)),
+                "stats_font": max(11, int(panel_w * 0.10)),
+                "button_font": max(12, int(panel_w * 0.11)),
+            }
+
+        _lay = _compute_layout()
+        screen_w, screen_h = _lay["sw"], _lay["sh"]
+        panel_w = _lay["panel_w"]
+        banner_font = _lay["banner_font"]
+        stats_font = _lay["stats_font"]
+        self._pw, self._ph = _lay["pw"], _lay["ph"]
 
         # Some window managers (common on the Raspberry Pi) ignore the
         # "-fullscreen" attribute when it is set before the window is mapped.
@@ -132,37 +164,6 @@ class MarbleDisplay:
         root.geometry(f"{screen_w}x{screen_h}+0+0")
         root.overrideredirect(True)
         root.attributes("-fullscreen", True)
-
-        def _force_fullscreen() -> None:
-            root.attributes("-fullscreen", True)
-            root.attributes("-topmost", True)
-            root.geometry(f"{screen_w}x{screen_h}+0+0")
-            root.lift()
-            root.focus_force()
-            # override-redirect windows don't always get an expose event from
-            # the WM, so force a full redraw of all widgets (incl. the button).
-            root.update()
-
-        root.after(100, _force_fullscreen)
-
-        # Landscape layout: marble image fills the full height on the left
-        # (kept as large as possible so it stays sharp), and the banner +
-        # counters live in the leftover column on the right. This avoids
-        # shrinking the image to make room for stacked text bars.
-        ph = screen_h
-        pw = int(ph * 4 / 3)
-        # Keep at least a minimum info column; clamp the image if needed.
-        min_panel_w = 150
-        if pw > screen_w - min_panel_w:
-            pw = screen_w - min_panel_w
-            ph = int(pw * 3 / 4)
-        self._pw, self._ph = pw, ph
-        panel_w = max(min_panel_w, screen_w - pw)
-
-        # Scale fonts to the info-panel width so the text fits without
-        # overflowing the column.
-        banner_font = max(12, int(panel_w * 0.13))
-        stats_font = max(11, int(panel_w * 0.10))
 
         # ── Layout ────────────────────────────────────────────────────
         # Left:  marble image (full height)
@@ -254,6 +255,44 @@ class MarbleDisplay:
         # Banner is packed last and absorbs the leftover space in the middle,
         # so its wrapped text grows into empty area instead of over the button.
         banner.pack(side="top", fill="both", expand=True, pady=(12, 0))
+
+        # ── Keep the window fullscreen on autostart ───────────────────
+        # The compositor maps the window asynchronously, so a single
+        # fullscreen attempt is unreliable (the window can stay windowed,
+        # as seen on boot). Re-assert it for the first few seconds and
+        # re-apply the layout if the reported screen size changes.
+        def _apply_layout(lay: dict) -> None:
+            self._pw, self._ph = lay["pw"], lay["ph"]
+            canvas.config(width=lay["pw"], height=lay["ph"])
+            panel.config(width=lay["panel_w"], height=lay["sh"])
+            banner.config(font=("DejaVu Sans", lay["banner_font"], "bold"),
+                          wraplength=lay["panel_w"] - 10)
+            stats_label.config(font=("DejaVu Sans", lay["stats_font"]),
+                               wraplength=lay["panel_w"] - 10)
+            toggle_btn.config(font=("DejaVu Sans", lay["button_font"], "bold"))
+
+        _applied_size = [(screen_w, screen_h)]
+
+        def _force_fullscreen() -> None:
+            lay = _compute_layout()
+            if (lay["sw"], lay["sh"]) != _applied_size[0]:
+                _applied_size[0] = (lay["sw"], lay["sh"])
+                _apply_layout(lay)
+            root.geometry(f"{lay['sw']}x{lay['sh']}+0+0")
+            root.attributes("-fullscreen", True)
+            root.attributes("-topmost", True)
+            root.lift()
+            root.focus_force()
+            # override-redirect windows don't always get an expose event from
+            # the WM, so force a full redraw of all widgets (incl. the button).
+            root.update()
+
+        def _fullscreen_watchdog(remaining: int) -> None:
+            _force_fullscreen()
+            if remaining > 0 and not self.quit.is_set():
+                root.after(300, _fullscreen_watchdog, remaining - 1)
+
+        root.after(100, _fullscreen_watchdog, 20)
 
         def _on_close() -> None:
             self.running.clear()
