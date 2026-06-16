@@ -114,20 +114,35 @@ class MarbleDisplay:
         root.attributes("-fullscreen", True)
         root.bind("<Escape>", lambda _e: root.attributes("-fullscreen", False))
 
-        # ── Layout ────────────────────────────────────────────────────
-        # Top:    label + confidence banner
-        # Center: marble image
-        # Bottom: running counters
+        # ── Fit layout to the actual screen ───────────────────────────
+        # The display can be small (e.g. 800x480 on a Pi DSI panel), so
+        # size everything relative to the real screen dimensions instead
+        # of using fixed pixel values that overflow the visible area.
+        screen_w = root.winfo_screenwidth()
+        screen_h = root.winfo_screenheight()
 
-        banner = tk.Label(
-            root,
-            text="Waiting for marble…",
-            font=("DejaVu Sans", 32, "bold"),
-            fg="white",
-            bg="black",
-            pady=12,
-        )
-        banner.pack(fill="x")
+        # Landscape layout: marble image fills the full height on the left
+        # (kept as large as possible so it stays sharp), and the banner +
+        # counters live in the leftover column on the right. This avoids
+        # shrinking the image to make room for stacked text bars.
+        ph = screen_h
+        pw = int(ph * 4 / 3)
+        # Keep at least a minimum info column; clamp the image if needed.
+        min_panel_w = 150
+        if pw > screen_w - min_panel_w:
+            pw = screen_w - min_panel_w
+            ph = int(pw * 3 / 4)
+        self._pw, self._ph = pw, ph
+        panel_w = max(min_panel_w, screen_w - pw)
+
+        # Scale fonts to the info-panel width so the text fits without
+        # overflowing the column.
+        banner_font = max(12, int(panel_w * 0.13))
+        stats_font = max(11, int(panel_w * 0.10))
+
+        # ── Layout ────────────────────────────────────────────────────
+        # Left:  marble image (full height)
+        # Right: label/confidence banner (top) + running counters (bottom)
 
         canvas = tk.Canvas(
             root,
@@ -136,17 +151,35 @@ class MarbleDisplay:
             bg="#111111",
             highlightthickness=0,
         )
-        canvas.pack(expand=True)
+        canvas.pack(side="left")
 
-        stats_label = tk.Label(
-            root,
-            text="Red: 0   Green: 0   Other: 0",
-            font=("DejaVu Sans", 18),
-            fg="#AAAAAA",
+        panel = tk.Frame(root, bg="black", width=panel_w, height=screen_h)
+        panel.pack(side="right", fill="both", expand=True)
+        panel.pack_propagate(False)
+
+        banner = tk.Label(
+            panel,
+            text="Waiting\nfor marble…",
+            font=("DejaVu Sans", banner_font, "bold"),
+            fg="white",
             bg="black",
+            wraplength=panel_w - 10,
+            justify="center",
             pady=8,
         )
-        stats_label.pack(fill="x", side="bottom")
+        banner.pack(side="top", fill="x", pady=(12, 0))
+
+        stats_label = tk.Label(
+            panel,
+            text="Red: 0\nGreen: 0\nOther: 0",
+            font=("DejaVu Sans", stats_font),
+            fg="#AAAAAA",
+            bg="black",
+            wraplength=panel_w - 10,
+            justify="center",
+            pady=8,
+        )
+        stats_label.pack(side="bottom", fill="x", pady=(0, 12))
 
         _img_ref: list = [None]
         _counts: dict = {"red": 0, "green": 0, "other": 0}
@@ -196,7 +229,7 @@ class MarbleDisplay:
                 key = label if label in _counts else "other"
                 _counts[key] += 1
                 stats_label.config(
-                    text=f"Red: {_counts['red']}   Green: {_counts['green']}   Other: {_counts['other']}"
+                    text=f"Red: {_counts['red']}\nGreen: {_counts['green']}\nOther: {_counts['other']}"
                 )
 
             root.after(50, _poll)
