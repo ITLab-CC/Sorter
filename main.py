@@ -206,6 +206,9 @@ def main():
     if cam.camera is None:
         sys.exit("No camera detected. Exiting.")
     cam.print_camera_info()
+    # Disable auto-exposure and force a short shutter so fast-moving marbles
+    # are captured sharply instead of motion-blurred.
+    cam.unlock_max_framerate()
 
     # ------------------------------------------------------------------
     # 4. Start elevator (background thread).
