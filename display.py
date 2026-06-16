@@ -191,7 +191,8 @@ class MarbleDisplay:
             justify="center",
             pady=8,
         )
-        banner.pack(side="top", fill="x", pady=(12, 0))
+        # Banner is packed *last* (see below) so the button/stats reserve their
+        # space first and the wrapping banner can never push the button off-screen.
 
         stats_label = tk.Label(
             panel,
@@ -226,7 +227,7 @@ class MarbleDisplay:
 
         def _on_stop() -> None:
             self.running.clear()
-            banner.config(text="Stopped", fg="white")
+            banner.config(text="Stopped", fg="red")
             toggle_btn.config(text="START", bg="#22AA22", activebackground="#33CC33",
                               command=_on_start)
             toggle_btn.lift()
@@ -244,8 +245,15 @@ class MarbleDisplay:
             bd=4,
             command=_on_start,
         )
-        toggle_btn.pack(side="top", fill="x", padx=8, pady=12, ipady=10)
+        # Pack the button towards the bottom (above the stats) so its slot is
+        # reserved before the banner. This guarantees the button stays fully
+        # visible even when the banner text wraps to several lines.
+        toggle_btn.pack(side="bottom", fill="x", padx=8, pady=12, ipady=10)
         toggle_btn.lift()
+
+        # Banner is packed last and absorbs the leftover space in the middle,
+        # so its wrapped text grows into empty area instead of over the button.
+        banner.pack(side="top", fill="both", expand=True, pady=(12, 0))
 
         def _on_close() -> None:
             self.running.clear()
