@@ -115,15 +115,32 @@ class MarbleDisplay:
         root = tk.Tk()
         root.title("Marble Sorter")
         root.configure(bg="black")
-        root.attributes("-fullscreen", True)
         root.bind("<Escape>", lambda _e: root.attributes("-fullscreen", False))
 
         # ── Fit layout to the actual screen ───────────────────────────
         # The display can be small (e.g. 800x480 on a Pi DSI panel), so
         # size everything relative to the real screen dimensions instead
         # of using fixed pixel values that overflow the visible area.
+        root.update_idletasks()
         screen_w = root.winfo_screenwidth()
         screen_h = root.winfo_screenheight()
+
+        # Some window managers (common on the Raspberry Pi) ignore the
+        # "-fullscreen" attribute when it is set before the window is mapped.
+        # Force an explicit full-screen geometry first, then re-assert the
+        # fullscreen attribute once the window has actually been realised.
+        root.geometry(f"{screen_w}x{screen_h}+0+0")
+        root.overrideredirect(True)
+        root.attributes("-fullscreen", True)
+
+        def _force_fullscreen() -> None:
+            root.attributes("-fullscreen", True)
+            root.attributes("-topmost", True)
+            root.geometry(f"{screen_w}x{screen_h}+0+0")
+            root.lift()
+            root.focus_force()
+
+        root.after(100, _force_fullscreen)
 
         # Landscape layout: marble image fills the full height on the left
         # (kept as large as possible so it stays sharp), and the banner +
