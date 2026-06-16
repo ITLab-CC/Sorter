@@ -8,18 +8,36 @@ class NeoPixelController:
     def __init__(self, pin=board.D18, count: int = 24, brightness: float = 0.5):
         self.pin = pin
         self.count = count
-        self.brightness = brightness
         
-        # Initialize the hardware within the object
+        # Initialize the hardware
         self.pixels = neopixel.NeoPixel(
             self.pin, 
             self.count, 
-            brightness=self.brightness, 
+            brightness=brightness, 
             auto_write=False
         )
 
-    def set_color(self, color: tuple) -> None:
-        """Fills the entire strip with a specific RGB color."""
+    @property
+    def brightness(self) -> float:
+        """Gets the current brightness."""
+        return self.pixels.brightness
+
+    @brightness.setter
+    def brightness(self, value: float) -> None:
+        """Sets the brightness and updates the LEDs immediately."""
+        self.pixels.brightness = value
+        self.pixels.show()
+
+    def set_color(self, color: tuple, brightness: float = None) -> None:
+        """Fills the entire strip with a specific RGB color.
+
+        Args:
+            color: RGB tuple to fill the strip with.
+            brightness: Optional brightness (0.0-1.0). Overrides current brightness.
+        """
+        if brightness is not None:
+            self.pixels.brightness = brightness
+            
         self.pixels.fill(color)
         self.pixels.show()
 
@@ -28,26 +46,33 @@ class NeoPixelController:
         self.set_color((0, 0, 0))
 
 if __name__ == "__main__":
-    # 1. Instantiate the controller (uses the default values defined in __init__)
+    # Instantiate the controller
     led_ring = NeoPixelController()
     
-    """Runs a test sequence, turning LEDs white for a set duration."""
-    duration = 5  # Duration in seconds for the test
     try:
         print("NeoPixel test started...")
+        
+        # 1. Turn on with default brightness
+        led_ring.set_color((255, 255, 255), 0.1)
         time.sleep(1)
 
-        print(f"Turning NeoPixel rings on for {duration} seconds")
-        led_ring.set_color((255, 255, 255))
-
-        # Replaced the commented-out loop with a simple sleep 
-        # for the specified duration
-        time.sleep(duration)
+        print("Testing runtime brightness changes...")
+        
+        # 2. Change brightness at runtime using the new property!
+        # Fade down
+        for b in [0.4, 0.3, 0.2, 0.1, 0.05]:
+            led_ring.brightness = b
+            time.sleep(0.5)
+            
+        # Fade up
+        for b in [0.1, 0.3, 0.4, 0.5]:
+            led_ring.brightness = b
+            time.sleep(0.5)
 
     except KeyboardInterrupt:
         print("\nTest cancelled by user")
 
     finally:
-        # Uncommented the cleanup so the LEDs turn off when the script ends
+        # Cleanup so the LEDs turn off when the script ends
         led_ring.turn_off()
         print("NeoPixel test finished")

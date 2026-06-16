@@ -230,6 +230,9 @@ def main():
     # ------------------------------------------------------------------
     print("\n--- Ready. Press START in the window to begin sorting. ---\n")
 
+    # Ready state: light the NeoPixel rings a soft green until the user starts.
+    leds.set_color((0, 255, 0), 0.05)
+
     try:
         while not display.quit.is_set():
             # Wait (idle) until the user presses START.
@@ -242,7 +245,7 @@ def main():
             frame_count = 0
             sorted_count = 0
             sort_stats = {"red": 0, "green": 0, "other": 0}
-            leds.set_color((255, 255, 255))
+            leds.set_color((255, 255, 255), 0.5)
             print("\n--- Sorting started ---\n")
 
             for raw_frame in cam.stream_while_running(
@@ -301,7 +304,11 @@ def main():
 
             # Session stopped (STOP pressed or window closed).
             solenoid.turn_off()
-            leds.turn_off()
+            # Back to the ready state: green again (unless we're shutting down).
+            if not display.quit.is_set():
+                leds.set_color((0, 255, 0), 0.05)
+            else:
+                leds.turn_off()
 
             print(f"\n{'=' * 30}")
             print("      SORTING RESULTS")
