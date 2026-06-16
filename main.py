@@ -212,7 +212,20 @@ def main():
     leds = NeoPixelController()
     solenoid = SolenoidController()
     cam = Camera()
-    display = MarbleDisplay()
+
+    # Sleep mode: after a period of inactivity the display blanks itself and
+    # the NeoPixels switch off. Touching the screen wakes everything back up.
+    def _on_sleep() -> None:
+        leds.turn_off()
+
+    def _on_wake() -> None:
+        # Restore the LEDs to the state matching the current mode.
+        if display.running.is_set():
+            leds.set_color((255, 255, 255), 0.5)
+        else:
+            leds.set_color((0, 255, 0), 0.05)
+
+    display = MarbleDisplay(on_sleep=_on_sleep, on_wake=_on_wake)
 
     if cam.camera is None:
         sys.exit("No camera detected. Exiting.")

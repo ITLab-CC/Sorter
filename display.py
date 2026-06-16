@@ -9,8 +9,9 @@ import glob
 import os
 import queue
 import threading
+import time
 import tkinter as tk
-from typing import Optional, Tuple
+from typing import Callable, Optional, Tuple
 
 import cv2
 import numpy as np
@@ -38,7 +39,14 @@ class MarbleDisplay:
     loop is never blocked and never touches Tk objects directly.
     """
 
-    def __init__(self, preview_width: int = 640, preview_height: int = 480) -> None:
+    def __init__(
+        self,
+        preview_width: int = 640,
+        preview_height: int = 480,
+        sleep_timeout: float = 300.0,
+        on_sleep: Optional[Callable[[], None]] = None,
+        on_wake: Optional[Callable[[], None]] = None,
+    ) -> None:
         self._pw = preview_width
         self._ph = preview_height
         self._queue: queue.Queue = queue.Queue(maxsize=2)
@@ -46,6 +54,16 @@ class MarbleDisplay:
         self.running = threading.Event()
         # Set when the window is closed / the app should exit entirely.
         self.quit = threading.Event()
+        # ── Sleep / screensaver ───────────────────────────────────────
+        # After `sleep_timeout` seconds without any touch interaction (and
+        # while not actively sorting) the screen is blanked and the optional
+        # `on_sleep` callback fires (used to switch the NeoPixels off). Any
+        # touch wakes everything back up via `on_wake`.
+        self._sleep_timeout = sleep_timeout
+        self._on_sleep = on_sleep
+        self._on_wake = on_wake
+        # Set while the display is asleep (screen blanked).
+        self.sleeping = threading.Event()
         self._thread = threading.Thread(target=self._run, daemon=True)
         self._thread.start()
 
@@ -301,6 +319,80 @@ class MarbleDisplay:
 
         root.protocol("WM_DELETE_WINDOW", _on_close)
         root.bind("<q>", lambda _e: _on_close())
+
+        # ── Sleep mode (screen blanking + LED off after inactivity) ────
+        # A black frame that covers the entire window while asleep. It sits
+        # on top of everything and swallows the first touch (which wakes us).
+        sleep_overlay = tk.Frame(root, bg="black", cursor="none")
+
+        _last_activity = [time.monotonic()]
+
+        def _set_backlight(on: bool) -> None:
+            """Best-effort backlight power control (Pi DSI/HDMI panels).
+
+            Writing the framebuffer blank state to ``bl_power`` (0 = on,
+            1 = off). Silently ignored if the sysfs node is missing or not
+            writable, in which case the black overlay still hides the screen.
+            """
+            try:
+                for path in glob.glob("/sys/class/backlight/*/bl_power"):
+                    with open(path, "w") as fh:
+                        fh.write("0" if on else "1")
+            except Exception:
+                pass
+
+        def _go_to_sleep() -> None:
+            if self.sleeping.is_set():
+                return
+            self.sleeping.set()
+            if self._on_sleep is not None:
+                try:
+                    self._on_sleep()
+                except Exception:
+                    pass
+            sleep_overlay.place(x=0, y=0, relwidth=1, relheight=1)
+            sleep_overlay.lift()
+            _set_backlight(False)
+
+        def _wake() -> None:
+            _last_activity[0] = time.monotonic()
+            if not self.sleeping.is_set():
+                return
+            self.sleeping.clear()
+            _set_backlight(True)
+            sleep_overlay.place_forget()
+            if self._on_wake is not None:
+                try:
+                    self._on_wake()
+                except Exception:
+                    pass
+            toggle_btn.lift()
+
+        def _on_interaction(_e=None) -> None:
+            if self.sleeping.is_set():
+                _wake()
+            else:
+                _last_activity[0] = time.monotonic()
+
+        # Any touch (tap = Button press), release or key resets the timer or
+        # wakes the screen. Bound on the root so it catches events anywhere,
+        # including on the black overlay.
+        for seq in ("<Button>", "<ButtonRelease>", "<Key>"):
+            root.bind(seq, _on_interaction, add="+")
+        sleep_overlay.bind("<Button>", _on_interaction, add="+")
+
+        def _sleep_watchdog() -> None:
+            if self.quit.is_set():
+                return
+            if not self.sleeping.is_set():
+                # Never sleep while actively sorting – keep the timer fresh.
+                if self.running.is_set():
+                    _last_activity[0] = time.monotonic()
+                elif time.monotonic() - _last_activity[0] >= self._sleep_timeout:
+                    _go_to_sleep()
+            root.after(1000, _sleep_watchdog)
+
+        root.after(1000, _sleep_watchdog)
 
         def _make_photo(frame_bgr: np.ndarray, bgr_col: Tuple[int, int, int],
                         bbox: Optional[Tuple[int, int, int, int]]) -> ImageTk.PhotoImage:
