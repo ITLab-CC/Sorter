@@ -24,7 +24,7 @@ _COLOUR_MAP: dict[str, Tuple[Tuple[int, int, int], str]] = {
     "red":   ((0,   0,   220), "#FF3333"),
     "green": ((0,   200,   0), "#33FF33"),
 }
-_DEFAULT_BGR = (0, 200, 255)
+_DEFAULT_BGR = (255, 255, 255)
 _DEFAULT_HEX = "#FFDD00"
 
 _BORDER_THICKNESS = 8   # px, border drawn around the image
