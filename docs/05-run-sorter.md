@@ -18,6 +18,53 @@ sudo .venv-3.10/bin/python main.py
 
 Enjoy your sorted marbles!
 
+## 5.3 Run automatically on boot (autostart)
+
+To make the sorter start by itself once the desktop appears, use the **labwc** autostart script (Raspberry Pi OS Bookworm/trixie use the labwc Wayland compositor).
+
+We run the app inside a detached [`screen`](https://www.gnu.org/software/screen/) session named `sorter`, so you can attach later to see its console output.
+
+1. Make sure `screen` is installed:
+
+   ```bash
+   sudo apt install screen
+   ```
+
+2. Create the file `~/.config/labwc/autostart` with the following contents (adjust the paths if your project lives elsewhere):
+
+   ```sh
+   #!/bin/sh
+   # Start the marble sorter app in a detached screen session after the desktop comes up
+   cd /home/sorter/Documents/Sorter
+   screen -dmS sorter sudo --preserve-env=WAYLAND_DISPLAY,XDG_RUNTIME_DIR .venv-3.10/bin/python main.py
+   ```
+
+   - `screen -dmS sorter` starts a **d**etached, na**m**ed (`sorter`) session in the background.
+   - `sudo --preserve-env=WAYLAND_DISPLAY,XDG_RUNTIME_DIR` lets the root process reach the Wayland display (required because the app runs with `sudo` under Wayland). For this to work without a password prompt, passwordless `sudo` must be configured (it is by default on Raspberry Pi OS for the default user).
+
+3. Make it executable:
+
+   ```bash
+   chmod +x ~/.config/labwc/autostart
+   ```
+
+4. Test it without rebooting, then reboot to confirm:
+
+   ```bash
+   ~/.config/labwc/autostart
+   screen -ls          # should list the "sorter" session
+   sudo reboot
+   ```
+
+### Managing the running session
+
+| Action | Command |
+| --- | --- |
+| Attach to / view the app console | `screen -r sorter` |
+| Detach again (leave it running) | press `Ctrl+a` then `d` |
+| List sessions | `screen -ls` |
+| Stop the sorter | `screen -XS sorter quit` |
+
 ---
 
 **Previous:** [Step 4 — Train the Model](04-train-model.md)
