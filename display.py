@@ -204,7 +204,7 @@ class MarbleDisplay:
             panel,
             text="Press\nSTART",
             font=("DejaVu Sans", banner_font, "bold"),
-            fg="white",
+            fg="#33FF33",
             bg="black",
             wraplength=panel_w - 10,
             justify="center",
@@ -213,17 +213,35 @@ class MarbleDisplay:
         # Banner is packed *last* (see below) so the button/stats reserve their
         # space first and the wrapping banner can never push the button off-screen.
 
-        stats_label = tk.Label(
-            panel,
-            text="Red: 0\nGreen: 0\nOther: 0",
+        stats_frame = tk.Frame(panel, bg="black")
+        stats_frame.pack(side="bottom", fill="x", pady=(0, 12))
+
+        stats_red = tk.Label(
+            stats_frame,
+            text="Red: 0",
             font=("DejaVu Sans", stats_font),
-            fg="#AAAAAA",
+            fg="#FF3333",
             bg="black",
-            wraplength=panel_w - 10,
-            justify="center",
-            pady=8,
         )
-        stats_label.pack(side="bottom", fill="x", pady=(0, 12))
+        stats_red.pack()
+
+        stats_green = tk.Label(
+            stats_frame,
+            text="Green: 0",
+            font=("DejaVu Sans", stats_font),
+            fg="#33FF33",
+            bg="black",
+        )
+        stats_green.pack()
+
+        stats_other = tk.Label(
+            stats_frame,
+            text="Other: 0",
+            font=("DejaVu Sans", stats_font),
+            fg="white",
+            bg="black",
+        )
+        stats_other.pack()
 
         _img_ref: list = [None]
         _counts: dict = {"red": 0, "green": 0, "other": 0}
@@ -234,7 +252,9 @@ class MarbleDisplay:
         def _on_start() -> None:
             # Clear all statistics before a new sorting session.
             _counts["red"] = _counts["green"] = _counts["other"] = 0
-            stats_label.config(text="Red: 0\nGreen: 0\nOther: 0")
+            stats_red.config(text="Red: 0")
+            stats_green.config(text="Green: 0")
+            stats_other.config(text="Other: 0")
             banner.config(text="Sorting…", fg="white")
             canvas.delete("all")
             _img_ref[0] = None
@@ -285,8 +305,9 @@ class MarbleDisplay:
             panel.config(width=lay["panel_w"], height=lay["sh"])
             banner.config(font=("DejaVu Sans", lay["banner_font"], "bold"),
                           wraplength=lay["panel_w"] - 10)
-            stats_label.config(font=("DejaVu Sans", lay["stats_font"]),
-                               wraplength=lay["panel_w"] - 10)
+            stats_red.config(font=("DejaVu Sans", lay["stats_font"]))
+            stats_green.config(font=("DejaVu Sans", lay["stats_font"]))
+            stats_other.config(font=("DejaVu Sans", lay["stats_font"]))
             toggle_btn.config(font=("DejaVu Sans", lay["button_font"], "bold"))
 
         _applied_size = [(screen_w, screen_h)]
@@ -438,9 +459,9 @@ class MarbleDisplay:
 
                 key = label if label in _counts else "other"
                 _counts[key] += 1
-                stats_label.config(
-                    text=f"Red: {_counts['red']}\nGreen: {_counts['green']}\nOther: {_counts['other']}"
-                )
+                stats_red.config(text=f"Red: {_counts['red']}")
+                stats_green.config(text=f"Green: {_counts['green']}")
+                stats_other.config(text=f"Other: {_counts['other']}")
 
                 # Keep the control button on top of any redraw.
                 toggle_btn.lift()
