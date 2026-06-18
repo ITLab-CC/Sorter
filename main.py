@@ -47,6 +47,13 @@ SORT_DURATION = 30          # seconds
 DETECTION_THRESHOLD = 0.4   # minimum confidence for a detection
 COOLDOWN_SECONDS = 0.5      # pause after sorting a marble to avoid re-detecting
 
+# Only classify/sort a marble when its detected centre lies within this
+# fraction of the frame (width and height) around the image centre. e.g. 0.50
+# means the marble's centre must be inside the central 50% band. Increase to
+# accept marbles further from the middle; decrease to require tighter centring.
+# If some marbels are not detected set this to 1.
+CENTER_TOLERANCE = 0.50
+
 # ---------------------------------------------------------------------------
 # OpenCV marble-presence detection (mirrored from label_dataset.py)
 # ---------------------------------------------------------------------------
@@ -98,7 +105,9 @@ def load_labels():
     return labels
 
 
-def detect_marble_present(frame_bayer, crop_size=300, min_area=2000, max_area=100000, thresh_val=100):
+def detect_marble_present(frame_bayer, crop_size=300, min_area=2000, max_area=100000,
+                          thresh_val=100, require_centered=True,
+                          center_tolerance=CENTER_TOLERANCE):
     """
     Detects if a marble is present in the center of the given image.
 
@@ -108,6 +117,11 @@ def detect_marble_present(frame_bayer, crop_size=300, min_area=2000, max_area=10
         min_area (int): Minimum contour area to be considered a marble.
         max_area (int): Maximum contour area to be considered a marble.
         thresh_val (int): Threshold value for binarization.
+        require_centered (bool): If True, only count a marble when its centre
+            lies within ``center_tolerance`` of the crop centre. Set to False
+            to accept a marble anywhere inside the crop.
+        center_tolerance (float): Fraction (0-1) of the crop width/height that
+            forms the central band the marble centre must fall within.
 
     Returns:
         bool: True if a marble is detected, False otherwise.
@@ -137,10 +151,27 @@ def detect_marble_present(frame_bayer, crop_size=300, min_area=2000, max_area=10
     contours, _ = cv2.findContours(inv_thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
     # 5. Validation
-    # If any contour matches the area criteria, a marble is present
+    # A contour matching the area criteria means a marble is present. When
+    # require_centered is set, its centroid must also sit within the central
+    # band of the crop, so marbles drifting in/out of frame are ignored.
+    crop_h, crop_w = inv_thresh.shape[:2]
+    cx_lo = crop_w * (0.5 - center_tolerance / 2)
+    cx_hi = crop_w * (0.5 + center_tolerance / 2)
+    cy_lo = crop_h * (0.5 - center_tolerance / 2)
+    cy_hi = crop_h * (0.5 + center_tolerance / 2)
+
     for c in contours:
         area = cv2.contourArea(c)
-        if min_area <= area <= max_area:
+        if not (min_area <= area <= max_area):
+            continue
+        if not require_centered:
+            return True
+        moments = cv2.moments(c)
+        if moments["m00"] == 0:
+            continue
+        cx = moments["m10"] / moments["m00"]
+        cy = moments["m01"] / moments["m00"]
+        if cx_lo <= cx <= cx_hi and cy_lo <= cy <= cy_hi:
             return True
 
     return False
