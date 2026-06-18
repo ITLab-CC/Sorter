@@ -203,7 +203,7 @@ def main():
             "are installed."
         )
     input_size = common.input_size(interpreter)
-    print(f"[OK] Coral interpreter ready – input size {input_size}")
+    print(f"[OK] Coral interpreter ready - input size {input_size}")
 
     # ------------------------------------------------------------------
     # 3. Initialise hardware
@@ -305,9 +305,23 @@ def main():
                 confidence = best.score * 100
                 sorted_count += 1
 
+                # The model bbox is in the input-tensor space (input_size),
+                # so scale it back to the full-resolution frame and convert
+                # from (xmin, ymin, xmax, ymax) to (x, y, w, h).
+                fh, fw = frame_bgr.shape[:2]
+                scale_x = fw / input_size[0]
+                scale_y = fh / input_size[1]
+                bb = best.bbox
+                disp_bbox = (
+                    int(bb.xmin * scale_x),
+                    int(bb.ymin * scale_y),
+                    int((bb.xmax - bb.xmin) * scale_x),
+                    int((bb.ymax - bb.ymin) * scale_y),
+                )
+
                 # Solenoid ON  → deflect to GREEN side (left)
                 # Solenoid OFF → marble falls to RED side (right, default)
-                display.update_detection(frame_bgr, label, confidence)
+                display.update_detection(frame_bgr, label, confidence, disp_bbox)
 
                 if label == "green":
                     solenoid.turn_on()
