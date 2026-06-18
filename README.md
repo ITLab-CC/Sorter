@@ -40,6 +40,12 @@ Follow the guides below in order:
 | 4 | [Train the Model](docs/04-train-model.md) | Training PC |
 | 5 | [Run the Sorter](docs/05-run-sorter.md) | Raspberry Pi |
 
+> **Don't want to train your own model?** A **pretrained, ready-to-use** model
+> is included in [`my-models-example/`](my-models-example/README.md). Just copy
+> that folder's contents into `my-models/` and skip straight to
+> [Step 5 — Run the Sorter](docs/05-run-sorter.md) (you can ignore Steps 2–4).
+> See [Step 5](docs/05-run-sorter.md) for the exact copy command.
+
 ## Project Structure
 
 ```
@@ -47,7 +53,8 @@ Follow the guides below in order:
 ├── actuator/          # Motor, solenoid and LED control
 ├── sensor/            # Camera and light-beam sensor
 ├── dataset/           # Training images (created in step 3)
-├── my-models/         # Trained models (created in step 4)
+├── my-models/         # Trained models (created in step 4, git-ignored)
+├── my-models-example/ # Pretrained ready-to-use model (copy into my-models/)
 ├── docs/              # Step-by-step setup guides
 ├── create_unlabeled_dataset.py
 ├── label_dataset.py

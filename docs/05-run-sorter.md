@@ -4,9 +4,25 @@ You now have a trained Edge TPU model. Time to sort some marbles.
 
 > **Machine:** Raspberry Pi
 
-## 5.1 Copy the model to the Raspberry Pi
+## 5.1 Get a model into `my-models/`
 
-Transfer `my-models/marbel_coral.tflite` and `my-models/labels.txt` from the training PC to the Raspberry Pi project directory (inside `my-models/`).
+The sorter loads its model from the `my-models/` folder (which is git-ignored). You have two options:
+
+### Option A — Use the included pretrained model (no training required)
+
+If you don't want to train your own model, a **pretrained, ready-to-use** model ships with the project in `my-models-example/`. Just copy its contents into `my-models/`:
+
+```bash
+# From the project root, on the Raspberry Pi
+mkdir -p my-models
+cp my-models-example/marbel_coral.tflite my-models-example/labels.txt my-models/
+```
+
+That's it — you can skip Steps 2–4 entirely. See [`my-models-example/README.md`](../my-models-example/README.md) for details about the model.
+
+### Option B — Use your own trained model
+
+If you completed [Step 4 — Train the Model](04-train-model.md), transfer `my-models/marbel_coral.tflite` and `my-models/labels.txt` from the training PC to the Raspberry Pi project directory (inside `my-models/`).
 
 ## 5.2 Start the sorter
 
