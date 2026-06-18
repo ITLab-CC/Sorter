@@ -8,6 +8,7 @@ arrives. The window is fullscreen and uses only tkinter + Pillow.
 import glob
 import os
 import queue
+import subprocess
 import threading
 import time
 import tkinter as tk
@@ -103,6 +104,44 @@ class MarbleDisplay:
     # Internal
     # ------------------------------------------------------------------
 
+    @staticmethod
+    def _set_backlight_power(on: bool) -> None:
+        """Best-effort backlight power control (Pi DSI/HDMI panels).
+
+        Writes the framebuffer blank state to ``bl_power`` (0 = on, 1 = off).
+        Silently ignored if the sysfs node is missing or not writable.
+        """
+        try:
+            for path in glob.glob("/sys/class/backlight/*/bl_power"):
+                with open(path, "w") as fh:
+                    fh.write("0" if on else "1")
+        except Exception:
+            pass
+
+    def _force_display_on(self) -> None:
+        """Wake the screen and stop it from blanking again.
+
+        Turns the backlight on and disables the X screensaver / DPMS so the
+        panel doesn't go dark while the sorter is idle. Best-effort: every
+        step is guarded so a missing tool or sysfs node never crashes the UI.
+        """
+        self._set_backlight_power(True)
+        for args in (
+            ["xset", "s", "off"],
+            ["xset", "s", "noblank"],
+            ["xset", "-dpms"],
+            ["xset", "dpms", "force", "on"],
+        ):
+            try:
+                subprocess.run(
+                    args,
+                    check=False,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+            except Exception:
+                pass
+
     def _post(self, msg: dict) -> None:
         try:
             self._queue.put_nowait(msg)
@@ -129,6 +168,12 @@ class MarbleDisplay:
                 if os.path.exists(path):
                     os.environ["XAUTHORITY"] = path
                     break
+
+        # Make sure the panel is actually powered on before we map the window.
+        # On some Pi setups the screen is left blanked (DPMS off / backlight
+        # off) from a previous session or the OS screensaver, so the app would
+        # otherwise start on a dark screen that never wakes up.
+        self._force_display_on()
 
         root = tk.Tk()
         root.title("Marble Sorter")
@@ -349,18 +394,7 @@ class MarbleDisplay:
         _last_activity = [time.monotonic()]
 
         def _set_backlight(on: bool) -> None:
-            """Best-effort backlight power control (Pi DSI/HDMI panels).
-
-            Writing the framebuffer blank state to ``bl_power`` (0 = on,
-            1 = off). Silently ignored if the sysfs node is missing or not
-            writable, in which case the black overlay still hides the screen.
-            """
-            try:
-                for path in glob.glob("/sys/class/backlight/*/bl_power"):
-                    with open(path, "w") as fh:
-                        fh.write("0" if on else "1")
-            except Exception:
-                pass
+            self._set_backlight_power(on)
 
         def _go_to_sleep() -> None:
             if self.sleeping.is_set():
@@ -380,7 +414,7 @@ class MarbleDisplay:
             if not self.sleeping.is_set():
                 return
             self.sleeping.clear()
-            _set_backlight(True)
+            self._force_display_on()
             sleep_overlay.place_forget()
             if self._on_wake is not None:
                 try:
