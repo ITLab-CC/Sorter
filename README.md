@@ -33,7 +33,7 @@ Follow the guides below in order:
 
 | Step | Guide | Machine |
 |---|---|---|
-| 0 | [Build the Sorter](docs/00-build-the-sorter.md) *(TODO)* | Workbench |
+| 0 | [Build the Sorter](docs/00-build-the-sorter.md) | Workbench |
 | 1 | [Raspberry Pi Setup](docs/01-raspberry-pi-setup.md) | Raspberry Pi |
 | 2 | [Training PC Setup](docs/02-training-pc-setup.md) | Training PC |
 | 3 | [Create a Dataset](docs/03-create-dataset.md) | Raspberry Pi |
