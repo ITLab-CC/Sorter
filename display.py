@@ -279,6 +279,24 @@ class MarbleDisplay:
         )
         stats_green.pack()
 
+        stats_orange = tk.Label(
+            stats_frame,
+            text="Orange: 0",
+            font=("DejaVu Sans", stats_font),
+            fg="#FF7300",
+            bg="black",
+        )
+        stats_orange.pack()
+
+        stats_black = tk.Label(
+            stats_frame,
+            text="Black: 0",
+            font=("DejaVu Sans", stats_font),
+            fg="#858585",
+            bg="black",
+        )
+        stats_black.pack()
+
         stats_other = tk.Label(
             stats_frame,
             text="Other: 0",
@@ -289,17 +307,18 @@ class MarbleDisplay:
         stats_other.pack()
 
         _img_ref: list = [None]
-        _counts: dict = {"red": 0, "green": 0, "other": 0}
+        _counts: dict = {"red": 0, "green": 0, "orange": 0, "black": 0}
 
         # ── Start / Stop control ──────────────────────────────────────
         button_font = max(12, int(panel_w * 0.11))
 
         def _on_start() -> None:
             # Clear all statistics before a new sorting session.
-            _counts["red"] = _counts["green"] = _counts["other"] = 0
+            _counts["red"] = _counts["green"] = _counts["orange"] = _counts["black"] = 0
             stats_red.config(text="Red: 0")
             stats_green.config(text="Green: 0")
-            stats_other.config(text="Other: 0")
+            stats_orange.config(text="Orange: 0")
+            stats_black.config(text="Black: 0")
             banner.config(text="Sorting…", fg="white")
             canvas.delete("all")
             _img_ref[0] = None
@@ -352,7 +371,8 @@ class MarbleDisplay:
                           wraplength=lay["panel_w"] - 10)
             stats_red.config(font=("DejaVu Sans", lay["stats_font"]))
             stats_green.config(font=("DejaVu Sans", lay["stats_font"]))
-            stats_other.config(font=("DejaVu Sans", lay["stats_font"]))
+            stats_orange.config(font=("DejaVu Sans", lay["stats_font"]))
+            stats_black.config(font=("DejaVu Sans", lay["stats_font"]))
             toggle_btn.config(font=("DejaVu Sans", lay["button_font"], "bold"))
 
         _applied_size = [(screen_w, screen_h)]
@@ -495,7 +515,8 @@ class MarbleDisplay:
                 _counts[key] += 1
                 stats_red.config(text=f"Red: {_counts['red']}")
                 stats_green.config(text=f"Green: {_counts['green']}")
-                stats_other.config(text=f"Other: {_counts['other']}")
+                stats_orange.config(text=f"Orange: {_counts['orange']}")
+                stats_black.config(text=f"Black: {_counts['black']}")
 
                 # Keep the control button on top of any redraw.
                 toggle_btn.lift()

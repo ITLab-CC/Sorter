@@ -299,7 +299,7 @@ def main():
             # New session: clear all statistics and light up.
             frame_count = 0
             sorted_count = 0
-            sort_stats = {"red": 0, "green": 0, "other": 0}
+            sort_stats = {"red": 0, "green": 0, "orange": 0, "black": 0}
             leds.set_color((255, 255, 255), 0.5)
             print("\n--- Sorting started ---\n")
 
@@ -362,9 +362,13 @@ def main():
                     solenoid.turn_off()
                     sort_stats["red"] += 1
                     print(f"  Frame {frame_count}: {label} ({confidence:.1f}%) -> RIGHT ({inference_time*1000:.2f}ms)")
-                else:
+                elif label == "orange":
+                    solenoid.turn_on()
+                    sort_stats["orange"] += 1
+                    print(f"  Frame {frame_count}: {label} ({confidence:.1f}%) -> LEFT ({inference_time*1000:.2f}ms)")
+                elif label == "black":
                     solenoid.turn_off()
-                    sort_stats["other"] += 1
+                    sort_stats["black"] += 1
                     print(f"  Frame {frame_count}: {label} ({confidence:.1f}%) -> RIGHT ({inference_time*1000:.2f}ms)")
 
                 # Cooldown so we don't re-classify the same marble
@@ -387,7 +391,8 @@ def main():
             print(f"  Marbles sorted   : {sorted_count}")
             print(f"  Red   (right)    : {sort_stats['red']}")
             print(f"  Green (left)     : {sort_stats['green']}")
-            print(f"  Other (skipped)  : {sort_stats['other']}")
+            print(f"  Orange (left)    : {sort_stats['orange']}")
+            print(f"  Black (right)    : {sort_stats['black']}")
             print(f"{'=' * 30}")
             if not display.quit.is_set():
                 print("\n--- Sorting stopped. Press START to run again. ---\n")
