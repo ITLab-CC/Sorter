@@ -52,7 +52,7 @@ COOLDOWN_SECONDS = 0.5      # pause after sorting a marble to avoid re-detecting
 # means the marble's centre must be inside the central 50% band. Increase to
 # accept marbles further from the middle; decrease to require tighter centring.
 # If some marbels are not detected set this to 1.
-CENTER_TOLERANCE = 0.50
+CENTER_TOLERANCE = 1.0
 
 # ---------------------------------------------------------------------------
 # OpenCV marble-presence detection (mirrored from label_dataset.py)
